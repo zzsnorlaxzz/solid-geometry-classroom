@@ -4,9 +4,12 @@ import {
   SHAPES,
   geometry,
   triangulate,
-  sideLimits,
-  validSides,
+  DEFAULT_POLYGONS,
+  canonicalPolygon,
+  centroid,
 } from "./geometry.js";
+import { layout } from "./ui.js";
+import { mountEditor } from "./editor.js";
 import "./style.css";
 const $ = (id) => document.getElementById(id),
   letters = ["A", "B", "C", "D"],
@@ -16,11 +19,10 @@ let n = 3,
   h = 6,
   t = 1,
   selected = null;
-const dimensions = { 3: [4, 5, 6], 4: [4, 6, 5, 7] },
+const dimensions = structuredClone(DEFAULT_POLYGONS),
   shape = () => SHAPES.find((s) => s.kind === kind && s.n === n),
   sides = () => dimensions[n];
-$("app").innerHTML =
-  `<section id="left"><header><div class="eyebrow">GEOMETRY CLASSROOM</div><h1>입체도형 연구실</h1></header><div id="solid-wrap"><canvas id="solid-canvas" aria-label="회전 가능한 입체도형"></canvas><div id="vertex-labels" aria-hidden="true"></div><div class="view-tools"><button id="zoom-in" aria-label="확대">＋</button><button id="zoom-out" aria-label="축소">−</button><button id="reset-view">시점 복귀</button></div></div><div id="controls"><div class="section-title"><span>입체도형 설정</span><button id="collapse" aria-expanded="true">접기</button></div><div id="settings"><div class="control-grid"><label>입체도형<select id="shape"><option value="prism">각기둥</option><option value="pyramid">각뿔</option></select></label><label>밑면 모양<select id="base-shape"><option value="3">삼각형</option><option value="4">사각형</option></select></label></div><div id="edges"></div><p id="shape-note" class="note"></p><p id="error" role="status"></p><div class="field height-field"><label for="height">입체도형의 높이</label><div class="range-row"><input id="height" type="range" min="2" max="15" step=".1" value="6"><input id="height-number" aria-label="높이" type="number" min="2" max="15" step=".1" value="6"><small>cm</small></div></div></div><div class="unfold"><label for="progress">펼쳐서 살펴보기</label><input id="progress" aria-label="전개 진행률" type="range" min="0" max="1" step=".001" value="1"></div></div></section><section id="board" aria-label="전개도"><canvas id="net-canvas" aria-label="면을 선택할 수 있는 전개도"></canvas></section>`;
+$("app").innerHTML = layout;
 function view(canvas, flat) {
   const renderer = new THREE.WebGLRenderer({
     canvas,
@@ -161,60 +163,17 @@ function rebuild(reset = false) {
   netCamera();
   labels();
   $("app").dataset.shape = shape().id;
-  $("app").dataset.sides = JSON.stringify(sides());
+  $("app").dataset.vertices = JSON.stringify(sides());
+  $("app").dataset.height = h;
+  $("height-handle").setAttribute("aria-valuenow", h.toFixed(2));
   $("app").dataset.progress = t;
   $("app").dataset.selected = selected || "";
 }
-function updateRanges(source = null) {
-  sides().forEach((v, i) => {
-    const [min, max] = sideLimits(sides(), i);
-    $("side-" + i).min = min;
-    $("side-" + i).max = max;
-    $("side-" + i).value = v;
-    if ($("side-number-" + i) !== source) $("side-number-" + i).value = v;
-    $("side-number-" + i).removeAttribute("aria-invalid");
-  });
-}
-function renderEdges() {
-  $("edges").innerHTML = sides()
-    .map(
-      (v, i) =>
-        `<div class="field"><label for="side-${i}"><i style="background:${colors[i]}"></i>변 ${letters[i]}${letters[(i + 1) % n]}</label><div class="range-row"><input id="side-${i}" data-side="${i}" type="range" min="2" max="10" step=".1" value="${v}"><input id="side-number-${i}" data-side="${i}" aria-label="변 ${letters[i]}${letters[(i + 1) % n]} 길이" type="number" min="2" max="10" step=".1" value="${v}"><small>cm</small></div></div>`,
-    )
-    .join("");
-  $("shape-note").textContent =
-    n === 4
-      ? "네 변에 맞는 원에 내접하는 사각형으로 구성합니다."
-      : "세 변의 길이에 맞추어 삼각형을 구성합니다.";
-  $("error").textContent = "";
-  updateRanges();
-}
-function setSide(input) {
-  const index = Number(input.dataset.side),
-    value = Number(input.value),
-    next = [...sides()];
-  next[index] = Math.round(value * 10) / 10;
-  if (input.value === "" || value < 2 || value > 10 || !validSides(next)) {
-    input.setAttribute("aria-invalid", "true");
-    $("error").textContent =
-      "각 변은 2~10cm이며, 가장 긴 변은 나머지 변의 합보다 짧아야 합니다.";
-    return false;
-  }
-  dimensions[n] = next;
-  updateRanges(input);
-  $("error").textContent = "";
+const editor = mountEditor($("base-editor"), sides, (polygon) => {
+  dimensions[n] = polygon;
   selected = null;
-  rebuild(true);
-  return true;
-}
-$("edges").addEventListener("input", (e) => {
-  if (e.target.dataset.side !== undefined) setSide(e.target);
-});
-$("edges").addEventListener("change", (e) => {
-  if (e.target.dataset.side !== undefined) {
-    setSide(e.target);
-    updateRanges();
-  }
+  rebuild();
+  ensureVisible();
 });
 $("shape").onchange = () => {
   kind = $("shape").value;
@@ -224,31 +183,122 @@ $("shape").onchange = () => {
 $("base-shape").onchange = () => {
   n = Number($("base-shape").value);
   selected = null;
-  renderEdges();
+  editor.render();
   rebuild(true);
 };
-for (const id of ["height", "height-number"])
-  $(id).oninput = () => {
-    const input = $(id),
-      v = Number(input.value);
-    if (input.value === "" || v < 2 || v > 15 || !Number.isFinite(v)) {
-      input.setAttribute("aria-invalid", "true");
-      $("error").textContent = "높이는 2~15cm로 입력해 주세요.";
-      return;
-    }
-    h = Math.round(v * 10) / 10;
-    $("height").value = h;
-    if (id !== "height-number") $("height-number").value = h;
-    input.removeAttribute("aria-invalid");
-    $("error").textContent = "";
-    rebuild(true);
-  };
-$("height-number").onchange = () => {
-  $("height-number").value = h;
-  if ($("height-number").hasAttribute("aria-invalid")) {
-    $("height-number").value = h;
-    $("height-number").removeAttribute("aria-invalid");
+$("reset-base").onclick = () => {
+  dimensions[n] = structuredClone(DEFAULT_POLYGONS[n]);
+  selected = null;
+  editor.render();
+  rebuild(true);
+};
+function projectPoint(p) {
+  const q = p.clone().project(solid.camera);
+  return new THREE.Vector2(
+    (q.x + 1) * 0.5 * $("solid-wrap").clientWidth,
+    (-q.y + 1) * 0.5 * $("solid-wrap").clientHeight,
+  );
+}
+function heightAnchor() {
+  const [x, y] = centroid(canonicalPolygon(sides()));
+  return kind === "prism"
+    ? new THREE.Vector3(x, h, y)
+    : new THREE.Vector3(x, y, h);
+}
+function ensureVisible() {
+  const data = geometry(shape(), sides(), h, 0);
+  if (
+    !data.some((f) =>
+      f.vertices.some((v) => {
+        const q = new THREE.Vector3(...v).project(solid.camera);
+        return Math.abs(q.x) > 0.82 || Math.abs(q.y) > 0.82;
+      }),
+    )
+  )
+    return;
+  const b = box(data),
+    center = b.getCenter(new THREE.Vector3()),
+    size = b.getSize(new THREE.Vector3()).length(),
+    direction = solid.camera.position.clone().sub(orbit.target).normalize(),
+    distance = Math.max(
+      solid.camera.position.distanceTo(orbit.target),
+      size * 1.75,
+    );
+  orbit.target.copy(center);
+  solid.camera.position.copy(center).addScaledVector(direction, distance);
+  orbit.minDistance = size * 0.65;
+  orbit.maxDistance = size * 4;
+  orbit.update();
+}
+let heightDrag = null;
+$("height-handle").onpointerdown = (e) => {
+  if (heightDrag) return;
+  e.preventDefault();
+  e.stopPropagation();
+  orbit.enabled = false;
+  heightDrag = { id: e.pointerId, x: e.clientX, y: e.clientY };
+  $("height-handle").setPointerCapture(e.pointerId);
+  $("height-handle").classList.add("dragging");
+};
+$("height-handle").onpointermove = (e) => {
+  if (!heightDrag || heightDrag.id !== e.pointerId) return;
+  e.preventDefault();
+  const anchor = heightAnchor(),
+    up =
+      kind === "prism"
+        ? new THREE.Vector3(0, 1, 0)
+        : new THREE.Vector3(0, 0, 1),
+    axis = projectPoint(anchor.clone().add(up)).sub(projectPoint(anchor)),
+    delta = new THREE.Vector2(
+      e.clientX - heightDrag.x,
+      e.clientY - heightDrag.y,
+    );
+  heightDrag.x = e.clientX;
+  heightDrag.y = e.clientY;
+  // When looking along the height axis, its projection collapses. Keep the
+  // same up/down gesture usable from this view with the camera's world scale.
+  if (axis.lengthSq() <= 1) {
+    const distance = solid.camera.position.distanceTo(orbit.target);
+    axis.set(
+      0,
+      -$("solid-wrap").clientHeight /
+        (2 *
+          distance *
+          Math.tan(THREE.MathUtils.degToRad(solid.camera.fov / 2))),
+    );
   }
+  if (axis.lengthSq() > 1) {
+    h = Math.min(15, Math.max(2, h + delta.dot(axis) / axis.lengthSq()));
+    rebuild();
+    ensureVisible();
+  }
+};
+function endHeight(e) {
+  if (heightDrag?.id !== e.pointerId) return;
+  heightDrag = null;
+  orbit.enabled = true;
+  $("height-handle").classList.remove("dragging");
+  if ($("height-handle").hasPointerCapture(e.pointerId))
+    $("height-handle").releasePointerCapture(e.pointerId);
+}
+$("height-handle").onpointerup = endHeight;
+$("height-handle").onpointercancel = endHeight;
+$("height-handle").onlostpointercapture = () => {
+  heightDrag = null;
+  orbit.enabled = true;
+  $("height-handle").classList.remove("dragging");
+};
+$("height-handle").onkeydown = (e) => {
+  let next = h;
+  if (e.key === "ArrowUp" || e.key === "ArrowRight") next += 0.5;
+  else if (e.key === "ArrowDown" || e.key === "ArrowLeft") next -= 0.5;
+  else if (e.key === "Home") next = 2;
+  else if (e.key === "End") next = 15;
+  else return;
+  e.preventDefault();
+  h = Math.max(2, Math.min(15, next));
+  rebuild();
+  ensureVisible();
 };
 $("progress").oninput = () => {
   t = Number($("progress").value);
@@ -309,13 +359,18 @@ function resize() {
   net.renderer.setSize($("board").clientWidth, $("board").clientHeight, false);
   netCamera();
 }
-renderEdges();
 rebuild(true);
 resize();
 new ResizeObserver(resize).observe($("solid-wrap"));
 new ResizeObserver(resize).observe($("board"));
 function animate() {
   orbit.update();
+  const handle = projectPoint(heightAnchor());
+  $("height-handle").style.left =
+    Math.max(24, Math.min($("solid-wrap").clientWidth - 24, handle.x)) + "px";
+  $("height-handle").style.top =
+    Math.max(38, Math.min($("solid-wrap").clientHeight - 48, handle.y - 8)) +
+    "px";
   for (const { el, p } of vertexLabels) {
     const q = p.clone().project(solid.camera);
     el.style.left = (q.x + 1) * 0.5 * $("solid-wrap").clientWidth + "px";

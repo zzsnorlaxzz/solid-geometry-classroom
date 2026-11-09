@@ -58,6 +58,109 @@ export function centroid(p) {
   return [x / (3 * sum), y / (3 * sum)];
 }
 const face = (id, base, vertices) => ({ id, base, vertices });
+export const DEFAULT_POLYGONS = {
+  3: [
+    [-3, -2],
+    [3, -2],
+    [-1, 2.5],
+  ],
+  4: [
+    [-3, -2],
+    [3, -2],
+    [2.4, 2.5],
+    [-2.5, 1.5],
+  ],
+};
+export function validPolygon(p) {
+  if (
+    ![3, 4].includes(p.length) ||
+    p.some(
+      (v) =>
+        v.length !== 2 ||
+        v.some((x) => !Number.isFinite(x)) ||
+        Math.abs(v[0]) > 8 ||
+        Math.abs(v[1]) > 4.5,
+    )
+  )
+    return false;
+  let twiceArea = 0;
+  for (let i = 0; i < p.length; i++) {
+    const a = p[i],
+      b = p[(i + 1) % p.length],
+      c = p[(i + 2) % p.length],
+      dx = b[0] - a[0],
+      dy = b[1] - a[1],
+      length = Math.hypot(dx, dy);
+    if (
+      length < 1.2 ||
+      length > 14 ||
+      (dx * (c[1] - b[1]) - dy * (c[0] - b[0])) / length < 0.5
+    )
+      return false;
+    twiceArea += a[0] * b[1] - b[0] * a[1];
+  }
+  return twiceArea >= 6;
+}
+// Follow a drag segment to the valid boundary instead of jumping across it.
+export function moveVertex(p, index, target) {
+  if (
+    !validPolygon(p) ||
+    !Number.isInteger(index) ||
+    index < 0 ||
+    index >= p.length ||
+    target.some((x) => !Number.isFinite(x))
+  )
+    return p.map((v) => [...v]);
+  const start = p[index],
+    end = [
+      Math.max(-8, Math.min(8, target[0])),
+      Math.max(-4.5, Math.min(4.5, target[1])),
+    ],
+    steps = Math.max(
+      1,
+      Math.ceil(Math.hypot(end[0] - start[0], end[1] - start[1]) / 0.1),
+    );
+  let accepted = 0;
+  const at = (t) =>
+    p.map((v, i) =>
+      i === index
+        ? [
+            start[0] + (end[0] - start[0]) * t,
+            start[1] + (end[1] - start[1]) * t,
+          ]
+        : [...v],
+    );
+  for (let j = 1; j <= steps; j++) {
+    const fraction = j / steps;
+    if (validPolygon(at(fraction))) {
+      accepted = fraction;
+      continue;
+    }
+    let lo = accepted,
+      hi = fraction;
+    for (let k = 0; k < 20; k++) {
+      const mid = (lo + hi) / 2;
+      if (validPolygon(at(mid))) lo = mid;
+      else hi = mid;
+    }
+    return at(lo);
+  }
+  return at(accepted);
+}
+export function canonicalPolygon(p) {
+  if (!validPolygon(p))
+    throw new RangeError("교차하거나 납작한 밑면은 사용할 수 없습니다.");
+  const [x, y] = p[0],
+    dx = p[1][0] - x,
+    dy = p[1][1] - y,
+    length = Math.hypot(dx, dy),
+    ux = dx / length,
+    uy = dy / length;
+  return p.map((v) => [
+    (v[0] - x) * ux + (v[1] - y) * uy,
+    -(v[0] - x) * uy + (v[1] - y) * ux,
+  ]);
+}
 export function triangulate(f) {
   return Array.from({ length: f.vertices.length - 2 }, (_, i) => [
     0,
@@ -68,9 +171,12 @@ export function triangulate(f) {
 export function geometry(shape, s, h, t = 0) {
   if (!Number.isFinite(h) || h < 2 || h > 15 || s.length !== shape.n)
     throw new RangeError("잘못된 치수");
-  const p = basePolygon(s),
+  const p = Array.isArray(s[0]) ? canonicalPolygon(s) : basePolygon(s),
     n = shape.n,
     faces = [];
+  s = p.map((v, i) =>
+    Math.hypot(p[(i + 1) % n][0] - v[0], p[(i + 1) % n][1] - v[1]),
+  );
   t = Math.min(1, Math.max(0, t));
   if (shape.kind === "prism") {
     let angle = 0;
@@ -97,10 +203,10 @@ export function geometry(shape, s, h, t = 0) {
         b = chain[i + 1];
       faces.push(
         face("side" + i, false, [
-          [a[0], -h / 2, a[1]],
-          [b[0], -h / 2, b[1]],
-          [b[0], h / 2, b[1]],
-          [a[0], h / 2, a[1]],
+          [a[0], 0, a[1]],
+          [b[0], 0, b[1]],
+          [b[0], h, b[1]],
+          [a[0], h, a[1]],
         ]),
       );
     }
@@ -111,7 +217,9 @@ export function geometry(shape, s, h, t = 0) {
           true,
           p.map(([x, z]) => [
             x,
-            (j ? 1 : -1) * (h / 2 + z * Math.sin((t * Math.PI) / 2)),
+            j
+              ? h + z * Math.sin((t * Math.PI) / 2)
+              : -z * Math.sin((t * Math.PI) / 2),
             z * Math.cos((t * Math.PI) / 2),
           ]),
         ),
