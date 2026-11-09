@@ -1,0 +1,23 @@
+{
+  "name": "solid-classroom",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/build.mjs && node scripts/serve.mjs",
+    "build": "node scripts/build.mjs",
+    "preview": "node scripts/serve.mjs",
+    "test": "node --test tests/*.test.js",
+    "build:pages": "node scripts/pages.mjs"
+  },
+  "dependencies": {
+    "html2canvas": "^1.4.1",
+    "three": "^0.181.1"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^29.0.3",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/wasm-node": "^4.68.2",
+    "prettier": "^3.9.10"
+  }
+}
