@@ -5,8 +5,7 @@ import {
   geometry,
   triangulate,
   DEFAULT_POLYGONS,
-  canonicalPolygon,
-  centroid,
+  solidGeometry,
 } from "./geometry.js";
 import { layout } from "./ui.js";
 import { mountEditor } from "./editor.js";
@@ -32,9 +31,7 @@ function view(canvas, flat) {
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setClearColor(0xffffff, 0);
   const scene = new THREE.Scene(),
-    camera = flat
-      ? new THREE.OrthographicCamera(-20, 20, 20, -20, 0.1, 1000)
-      : new THREE.PerspectiveCamera(38, 1, 0.1, 1000),
+    camera = new THREE.OrthographicCamera(-20, 20, 20, -20, 0.1, 1000),
     group = new THREE.Group();
   scene.add(group, new THREE.AmbientLight(0xffffff, 2));
   let light = new THREE.DirectionalLight(0xffffff, 1);
@@ -52,7 +49,8 @@ try {
   throw e;
 }
 let orbit = new OrbitControls(solid.camera, $("solid-canvas")),
-  netBox;
+  netBox,
+  solidHalfHeight = 10;
 const box = (data) =>
   new THREE.Box3().setFromPoints(
     data.flatMap((f) => f.vertices.map((p) => new THREE.Vector3(...p))),
@@ -100,28 +98,52 @@ function draw(view, faces) {
     );
   }
 }
+function solidData() {
+  return solidGeometry(shape(), sides(), h);
+}
+function setSolidFrustum() {
+  const aspect = $("solid-canvas").clientWidth / $("solid-canvas").clientHeight;
+  solid.camera.left = -solidHalfHeight * aspect;
+  solid.camera.right = solidHalfHeight * aspect;
+  solid.camera.top = solidHalfHeight;
+  solid.camera.bottom = -solidHalfHeight;
+  solid.camera.updateProjectionMatrix();
+}
+function fitSolid(preserveDirection = false) {
+  const data = solidData(),
+    center = box(data).getCenter(new THREE.Vector3()),
+    direction = preserveDirection
+      ? solid.camera.position.clone().sub(orbit.target).normalize()
+      : new THREE.Vector3(0, -0.95, 1.65).normalize();
+  orbit.target.copy(center);
+  solid.camera.position.copy(center).addScaledVector(direction, 100);
+  solid.camera.zoom = 1;
+  solid.camera.lookAt(center);
+  solid.camera.updateMatrixWorld();
+  const cameraPoints = data.flatMap((f) =>
+      f.vertices.map((p) =>
+        new THREE.Vector3(...p).applyMatrix4(solid.camera.matrixWorldInverse),
+      ),
+    ),
+    aspect = $("solid-canvas").clientWidth / $("solid-canvas").clientHeight;
+  solidHalfHeight =
+    Math.max(
+      ...cameraPoints.map((p) =>
+        Math.max(Math.abs(p.y), Math.abs(p.x) / aspect),
+      ),
+    ) * 1.25;
+  setSolidFrustum();
+  orbit.update();
+}
 function resetView() {
-  const b = box(geometry(shape(), sides(), h, 0)),
-    center = b.getCenter(new THREE.Vector3()),
-    size = b.getSize(new THREE.Vector3()).length(),
-    vertical = kind === "prism";
   orbit.dispose();
-  solid.camera.up.set(0, vertical ? 1 : 0, vertical ? 0 : 1);
+  solid.camera.up.set(0, 0, 1);
   orbit = new OrbitControls(solid.camera, $("solid-canvas"));
   orbit.enableDamping = true;
   orbit.enablePan = false;
-  orbit.target.copy(center);
-  orbit.minDistance = size * 0.65;
-  orbit.maxDistance = size * 4;
-  solid.camera.position
-    .copy(center)
-    .add(
-      vertical
-        ? new THREE.Vector3(size * 0.9, size * 0.8, size * 1.3)
-        : new THREE.Vector3(size * 0.9, -size * 1.25, size * 0.9),
-    );
-  solid.camera.lookAt(center);
-  orbit.update();
+  orbit.minZoom = 0.35;
+  orbit.maxZoom = 4;
+  fitSolid();
 }
 function netCamera() {
   if (!netBox) return;
@@ -145,10 +167,15 @@ function netCamera() {
 }
 let vertexLabels = [];
 function labels() {
-  const base = geometry(shape(), sides(), h, 0).find((f) => f.base);
+  const base = solidData().find(
+    (f) => f.id === (kind === "prism" ? "base1" : "base0"),
+  );
   $("vertex-labels").innerHTML = letters
     .slice(0, n)
-    .map((v, i) => `<span style="color:${colors[i]}">${v}</span>`)
+    .map(
+      (v, i) =>
+        `<span class="vertex-marker" data-label="${v}" style="color:${colors[i]}"><i></i><b>${v}</b></span>`,
+    )
     .join("");
   vertexLabels = Array.from($("vertex-labels").children).map((el, i) => ({
     el,
@@ -156,7 +183,7 @@ function labels() {
   }));
 }
 function rebuild(reset = false) {
-  draw(solid, geometry(shape(), sides(), h, 0));
+  draw(solid, solidData());
   draw(net, geometry(shape(), sides(), h, t));
   netBox = box(geometry(shape(), sides(), h, 1));
   if (reset) resetView();
@@ -165,7 +192,7 @@ function rebuild(reset = false) {
   $("app").dataset.shape = shape().id;
   $("app").dataset.vertices = JSON.stringify(sides());
   $("app").dataset.height = h;
-  $("height-handle").setAttribute("aria-valuenow", h.toFixed(2));
+  $("height").value = h;
   $("app").dataset.progress = t;
   $("app").dataset.selected = selected || "";
 }
@@ -192,111 +219,19 @@ $("reset-base").onclick = () => {
   editor.render();
   rebuild(true);
 };
-function projectPoint(p) {
-  const q = p.clone().project(solid.camera);
-  return new THREE.Vector2(
-    (q.x + 1) * 0.5 * $("solid-wrap").clientWidth,
-    (-q.y + 1) * 0.5 * $("solid-wrap").clientHeight,
-  );
-}
-function heightAnchor() {
-  const [x, y] = centroid(canonicalPolygon(sides()));
-  return kind === "prism"
-    ? new THREE.Vector3(x, h, y)
-    : new THREE.Vector3(x, y, h);
-}
 function ensureVisible() {
-  const data = geometry(shape(), sides(), h, 0);
   if (
-    !data.some((f) =>
+    solidData().some((f) =>
       f.vertices.some((v) => {
         const q = new THREE.Vector3(...v).project(solid.camera);
-        return Math.abs(q.x) > 0.82 || Math.abs(q.y) > 0.82;
+        return Math.abs(q.x) > 0.85 || Math.abs(q.y) > 0.85;
       }),
     )
   )
-    return;
-  const b = box(data),
-    center = b.getCenter(new THREE.Vector3()),
-    size = b.getSize(new THREE.Vector3()).length(),
-    direction = solid.camera.position.clone().sub(orbit.target).normalize(),
-    distance = Math.max(
-      solid.camera.position.distanceTo(orbit.target),
-      size * 1.75,
-    );
-  orbit.target.copy(center);
-  solid.camera.position.copy(center).addScaledVector(direction, distance);
-  orbit.minDistance = size * 0.65;
-  orbit.maxDistance = size * 4;
-  orbit.update();
+    fitSolid(true);
 }
-let heightDrag = null;
-$("height-handle").onpointerdown = (e) => {
-  if (heightDrag) return;
-  e.preventDefault();
-  e.stopPropagation();
-  orbit.enabled = false;
-  heightDrag = { id: e.pointerId, x: e.clientX, y: e.clientY };
-  $("height-handle").setPointerCapture(e.pointerId);
-  $("height-handle").classList.add("dragging");
-};
-$("height-handle").onpointermove = (e) => {
-  if (!heightDrag || heightDrag.id !== e.pointerId) return;
-  e.preventDefault();
-  const anchor = heightAnchor(),
-    up =
-      kind === "prism"
-        ? new THREE.Vector3(0, 1, 0)
-        : new THREE.Vector3(0, 0, 1),
-    axis = projectPoint(anchor.clone().add(up)).sub(projectPoint(anchor)),
-    delta = new THREE.Vector2(
-      e.clientX - heightDrag.x,
-      e.clientY - heightDrag.y,
-    );
-  heightDrag.x = e.clientX;
-  heightDrag.y = e.clientY;
-  // When looking along the height axis, its projection collapses. Keep the
-  // same up/down gesture usable from this view with the camera's world scale.
-  if (axis.lengthSq() <= 1) {
-    const distance = solid.camera.position.distanceTo(orbit.target);
-    axis.set(
-      0,
-      -$("solid-wrap").clientHeight /
-        (2 *
-          distance *
-          Math.tan(THREE.MathUtils.degToRad(solid.camera.fov / 2))),
-    );
-  }
-  if (axis.lengthSq() > 1) {
-    h = Math.min(15, Math.max(2, h + delta.dot(axis) / axis.lengthSq()));
-    rebuild();
-    ensureVisible();
-  }
-};
-function endHeight(e) {
-  if (heightDrag?.id !== e.pointerId) return;
-  heightDrag = null;
-  orbit.enabled = true;
-  $("height-handle").classList.remove("dragging");
-  if ($("height-handle").hasPointerCapture(e.pointerId))
-    $("height-handle").releasePointerCapture(e.pointerId);
-}
-$("height-handle").onpointerup = endHeight;
-$("height-handle").onpointercancel = endHeight;
-$("height-handle").onlostpointercapture = () => {
-  heightDrag = null;
-  orbit.enabled = true;
-  $("height-handle").classList.remove("dragging");
-};
-$("height-handle").onkeydown = (e) => {
-  let next = h;
-  if (e.key === "ArrowUp" || e.key === "ArrowRight") next += 0.5;
-  else if (e.key === "ArrowDown" || e.key === "ArrowLeft") next -= 0.5;
-  else if (e.key === "Home") next = 2;
-  else if (e.key === "End") next = 15;
-  else return;
-  e.preventDefault();
-  h = Math.max(2, Math.min(15, next));
+$("height").oninput = () => {
+  h = Number($("height").value);
   rebuild();
   ensureVisible();
 };
@@ -308,15 +243,12 @@ $("progress").oninput = () => {
 };
 $("reset-view").onclick = resetView;
 for (const [id, factor] of [
-  ["zoom-in", 0.82],
-  ["zoom-out", 1.2],
+  ["zoom-in", 1.2],
+  ["zoom-out", 1 / 1.2],
 ])
   $(id).onclick = () => {
-    solid.camera.position
-      .sub(orbit.target)
-      .multiplyScalar(factor)
-      .add(orbit.target);
-    orbit.update();
+    solid.camera.zoom = Math.min(4, Math.max(0.35, solid.camera.zoom * factor));
+    solid.camera.updateProjectionMatrix();
   };
 $("collapse").onclick = () => {
   const hidden = ($("settings").hidden = !$("settings").hidden);
@@ -353,9 +285,9 @@ for (const v of [solid, net]) {
 }
 function resize() {
   const r = $("solid-wrap").getBoundingClientRect();
-  solid.renderer.setSize(r.width, r.height, false);
-  solid.camera.aspect = r.width / r.height;
-  solid.camera.updateProjectionMatrix();
+  solid.renderer.setSize(r.width - 52, r.height, false);
+  setSolidFrustum();
+  ensureVisible();
   net.renderer.setSize($("board").clientWidth, $("board").clientHeight, false);
   netCamera();
 }
@@ -365,16 +297,10 @@ new ResizeObserver(resize).observe($("solid-wrap"));
 new ResizeObserver(resize).observe($("board"));
 function animate() {
   orbit.update();
-  const handle = projectPoint(heightAnchor());
-  $("height-handle").style.left =
-    Math.max(24, Math.min($("solid-wrap").clientWidth - 24, handle.x)) + "px";
-  $("height-handle").style.top =
-    Math.max(38, Math.min($("solid-wrap").clientHeight - 48, handle.y - 8)) +
-    "px";
   for (const { el, p } of vertexLabels) {
     const q = p.clone().project(solid.camera);
-    el.style.left = (q.x + 1) * 0.5 * $("solid-wrap").clientWidth + "px";
-    el.style.top = (-q.y + 1) * 0.5 * $("solid-wrap").clientHeight + "px";
+    el.style.left = (q.x + 1) * 0.5 * $("solid-canvas").clientWidth + "px";
+    el.style.top = (-q.y + 1) * 0.5 * $("solid-canvas").clientHeight + "px";
   }
   solid.renderer.render(solid.scene, solid.camera);
   net.renderer.render(net.scene, net.camera);

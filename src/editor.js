@@ -1,4 +1,4 @@
-import { moveVertex } from "./geometry.js";
+import { snapVertex } from "./geometry.js";
 const colors = ["#3478bd", "#bc7146", "#628b58", "#8b67ad"];
 export function mountEditor(svg, getPolygon, onChange) {
   let drag = null;
@@ -11,6 +11,17 @@ export function mountEditor(svg, getPolygon, onChange) {
         return `<g data-vertex="${i}" role="button" tabindex="0" aria-label="꼭짓점 ${"ABCD"[i]} 이동" transform="translate(${x} ${y})"><circle class="hit-target" r="26" fill="transparent"/><circle class="vertex-dot" r="6.5" fill="${colors[i]}" stroke="white" stroke-width="2"/><text x="10" y="-10" fill="${colors[i]}" font-size="12" font-weight="bold" pointer-events="none">${"ABCD"[i]}</text></g>`;
       })
       .join("")}`;
+  }
+  function showGuides(index) {
+    const p = getPolygon(),
+      q = p[index],
+      [x, y] = screen(q),
+      sameX = p.some((v, i) => i !== index && Math.abs(v[0] - q[0]) < 1e-9),
+      sameY = p.some((v, i) => i !== index && Math.abs(v[1] - q[1]) < 1e-9);
+    svg.insertAdjacentHTML(
+      "beforeend",
+      `<g class="snap-guides" pointer-events="none" stroke="#d39144" stroke-width="1" stroke-dasharray="4 3">${sameX ? '<line x1="' + x + '" y1="0" x2="' + x + '" y2="180"/>' : ""}${sameY ? '<line x1="0" y1="' + y + '" x2="320" y2="' + y + '"/>' : ""}</g>`,
+    );
   }
   function world(e) {
     const p = svg.createSVGPoint();
@@ -46,16 +57,20 @@ export function mountEditor(svg, getPolygon, onChange) {
     e.preventDefault();
     const q = world(e);
     onChange(
-      moveVertex(getPolygon(), drag.index, [
-        q[0] + drag.offset[0],
-        q[1] + drag.offset[1],
-      ]),
+      snapVertex(
+        getPolygon(),
+        drag.index,
+        [q[0] + drag.offset[0], q[1] + drag.offset[1]],
+        7 / (17 * Math.hypot(svg.getScreenCTM().a, svg.getScreenCTM().b)),
+      ),
     );
     render();
+    showGuides(drag.index);
   });
   function end(e) {
     if (drag?.id !== e.pointerId) return;
     drag = null;
+    svg.querySelector(".snap-guides")?.remove();
     svg.classList.remove("dragging");
     if (svg.hasPointerCapture(e.pointerId))
       svg.releasePointerCapture(e.pointerId);
@@ -64,6 +79,7 @@ export function mountEditor(svg, getPolygon, onChange) {
   svg.addEventListener("pointercancel", end);
   svg.addEventListener("lostpointercapture", () => {
     drag = null;
+    svg.querySelector(".snap-guides")?.remove();
     svg.classList.remove("dragging");
   });
   svg.addEventListener("keydown", (e) => {
@@ -78,7 +94,7 @@ export function mountEditor(svg, getPolygon, onChange) {
     e.preventDefault();
     const i = Number(handle.dataset.vertex),
       p = getPolygon();
-    onChange(moveVertex(p, i, [p[i][0] + delta[0], p[i][1] + delta[1]]));
+    onChange(snapVertex(p, i, [p[i][0] + delta[0], p[i][1] + delta[1]], 0.08));
     render();
     svg.querySelector(`[data-vertex="${i}"]`).focus({ preventScroll: true });
   });

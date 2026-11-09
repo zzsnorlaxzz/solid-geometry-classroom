@@ -88,6 +88,62 @@ h1 {
   border-radius: 12px;
   overflow: hidden;
 }
+#solid-canvas {
+  width: calc(100% - 52px);
+  height: 100%;
+}
+.height-control {
+  position: absolute;
+  right: 8px;
+  top: 22px;
+  bottom: 16px;
+  width: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  color: #647b8e;
+  font-size: 11px;
+}
+.height-control #height {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  appearance: auto;
+  width: 26px;
+  min-height: 0;
+  height: calc(100% - 25px);
+  cursor: ns-resize;
+  touch-action: none;
+}
+#vertex-labels .vertex-marker {
+  width: 11px;
+  height: 11px;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+.vertex-marker i {
+  display: block;
+  width: 11px;
+  height: 11px;
+  background: currentColor;
+  border: 1.5px solid white;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0.5px #536b8244;
+}
+.vertex-marker b {
+  position: absolute;
+  left: 13px;
+  top: -12px;
+  font-size: 12px;
+  font-weight: bold;
+  white-space: nowrap;
+  text-shadow:
+    1px 1px white,
+    -1px -1px white,
+    1px -1px white,
+    -1px 1px white;
+}
 canvas {
   display: block;
   width: 100%;
@@ -113,7 +169,7 @@ canvas {
   gap: 4px;
   position: absolute;
   bottom: 10px;
-  right: 10px;
+  right: 62px;
 }
 .view-tools button {
   background: #ffffffe8;
@@ -157,40 +213,6 @@ canvas {
   font-size: 10px;
   min-height: 26px;
   padding: 3px 7px;
-}
-#height-handle {
-  position: absolute;
-  z-index: 2;
-  transform: translate(-50%, -100%);
-  width: 32px;
-  height: 32px;
-  min-height: 32px;
-  border-radius: 50%;
-  padding: 0;
-  background: #edb96f;
-  color: #70451b;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 1px #bd873f;
-  touch-action: none;
-  cursor: ns-resize;
-  font-size: 24px;
-  line-height: 26px;
-  user-select: none;
-}
-#height-handle small {
-  position: absolute;
-  left: 36px;
-  top: 3px;
-  font-size: 10px;
-  line-height: 20px;
-  white-space: nowrap;
-  background: #ffffffd9;
-  border-radius: 3px;
-  padding: 0 3px;
-}
-#height-handle.dragging {
-  background: #e89d3b;
-  box-shadow: 0 0 0 3px #d8a15b55;
 }
 .section-title {
   display: flex;

@@ -161,6 +161,53 @@ export function canonicalPolygon(p) {
     -(v[0] - x) * uy + (v[1] - y) * ux,
   ]);
 }
+// Solid view keeps the editor's axes and point identities. Only the net uses
+// an AB-aligned coordinate frame for its hinge construction.
+export function solidGeometry(shape, polygon, h) {
+  const faces = geometry(shape, polygon, h, 0),
+    a = polygon[0],
+    b = polygon[1],
+    length = Math.hypot(b[0] - a[0], b[1] - a[1]),
+    ux = (b[0] - a[0]) / length,
+    uy = (b[1] - a[1]) / length;
+  return faces.map((f) => ({
+    ...f,
+    vertices: f.vertices.map((v) => {
+      const x = v[0],
+        y = shape.kind === "prism" ? v[2] : v[1],
+        z = shape.kind === "prism" ? v[1] : v[2];
+      return [a[0] + x * ux - y * uy, a[1] + x * uy + y * ux, z];
+    }),
+  }));
+}
+export function snapVertex(p, index, target, threshold = 0.3) {
+  const moved = moveVertex(p, index, target),
+    point = moved[index],
+    other = p.filter((_, i) => i !== index),
+    snap = [...point];
+  for (let axis = 0; axis < 2; axis++) {
+    const nearest = other.reduce(
+      (best, v) =>
+        Math.abs(v[axis] - point[axis]) < Math.abs(best - point[axis])
+          ? v[axis]
+          : best,
+      other[0][axis],
+    );
+    const grid = Math.round(point[axis] * 2) / 2;
+    if (Math.abs(nearest - point[axis]) <= threshold) snap[axis] = nearest;
+    else if (Math.abs(grid - point[axis]) <= threshold * 0.5) snap[axis] = grid;
+  }
+  for (const q of [snap, [snap[0], point[1]], [point[0], snap[1]]]) {
+    const candidate = moved.map((v, i) => (i === index ? [...q] : [...v]));
+    if (!validPolygon(candidate)) continue;
+    const checked = moveVertex(p, index, q);
+    if (Math.hypot(checked[index][0] - q[0], checked[index][1] - q[1]) < 1e-7) {
+      checked[index] = [...q];
+      return checked;
+    }
+  }
+  return moved;
+}
 export function triangulate(f) {
   return Array.from({ length: f.vertices.length - 2 }, (_, i) => [
     0,

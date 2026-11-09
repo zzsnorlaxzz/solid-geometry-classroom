@@ -88,6 +88,62 @@ h1 {
   border-radius: 12px;
   overflow: hidden;
 }
+#solid-canvas {
+  width: calc(100% - 52px);
+  height: 100%;
+}
+.height-control {
+  position: absolute;
+  right: 8px;
+  top: 22px;
+  bottom: 16px;
+  width: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  color: #647b8e;
+  font-size: 11px;
+}
+.height-control #height {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  appearance: auto;
+  width: 26px;
+  min-height: 0;
+  height: calc(100% - 25px);
+  cursor: ns-resize;
+  touch-action: none;
+}
+#vertex-labels .vertex-marker {
+  width: 11px;
+  height: 11px;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+.vertex-marker i {
+  display: block;
+  width: 11px;
+  height: 11px;
+  background: currentColor;
+  border: 1.5px solid white;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0.5px #536b8244;
+}
+.vertex-marker b {
+  position: absolute;
+  left: 13px;
+  top: -12px;
+  font-size: 12px;
+  font-weight: bold;
+  white-space: nowrap;
+  text-shadow:
+    1px 1px white,
+    -1px -1px white,
+    1px -1px white,
+    -1px 1px white;
+}
 canvas {
   display: block;
   width: 100%;
@@ -113,7 +169,7 @@ canvas {
   gap: 4px;
   position: absolute;
   bottom: 10px;
-  right: 10px;
+  right: 62px;
 }
 .view-tools button {
   background: #ffffffe8;
@@ -157,40 +213,6 @@ canvas {
   font-size: 10px;
   min-height: 26px;
   padding: 3px 7px;
-}
-#height-handle {
-  position: absolute;
-  z-index: 2;
-  transform: translate(-50%, -100%);
-  width: 32px;
-  height: 32px;
-  min-height: 32px;
-  border-radius: 50%;
-  padding: 0;
-  background: #edb96f;
-  color: #70451b;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 1px #bd873f;
-  touch-action: none;
-  cursor: ns-resize;
-  font-size: 24px;
-  line-height: 26px;
-  user-select: none;
-}
-#height-handle small {
-  position: absolute;
-  left: 36px;
-  top: 3px;
-  font-size: 10px;
-  line-height: 20px;
-  white-space: nowrap;
-  background: #ffffffd9;
-  border-radius: 3px;
-  padding: 0 3px;
-}
-#height-handle.dragging {
-  background: #e89d3b;
-  box-shadow: 0 0 0 3px #d8a15b55;
 }
 .section-title {
   display: flex;
@@ -1862,8 +1884,6 @@ canvas {
 
 	const _lut = [ '00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '0a', '0b', '0c', '0d', '0e', '0f', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '1a', '1b', '1c', '1d', '1e', '1f', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '2a', '2b', '2c', '2d', '2e', '2f', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '3a', '3b', '3c', '3d', '3e', '3f', '40', '41', '42', '43', '44', '45', '46', '47', '48', '49', '4a', '4b', '4c', '4d', '4e', '4f', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '5a', '5b', '5c', '5d', '5e', '5f', '60', '61', '62', '63', '64', '65', '66', '67', '68', '69', '6a', '6b', '6c', '6d', '6e', '6f', '70', '71', '72', '73', '74', '75', '76', '77', '78', '79', '7a', '7b', '7c', '7d', '7e', '7f', '80', '81', '82', '83', '84', '85', '86', '87', '88', '89', '8a', '8b', '8c', '8d', '8e', '8f', '90', '91', '92', '93', '94', '95', '96', '97', '98', '99', '9a', '9b', '9c', '9d', '9e', '9f', 'a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8', 'a9', 'aa', 'ab', 'ac', 'ad', 'ae', 'af', 'b0', 'b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9', 'ba', 'bb', 'bc', 'bd', 'be', 'bf', 'c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'ca', 'cb', 'cc', 'cd', 'ce', 'cf', 'd0', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9', 'da', 'db', 'dc', 'dd', 'de', 'df', 'e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'ea', 'eb', 'ec', 'ed', 'ee', 'ef', 'f0', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'fa', 'fb', 'fc', 'fd', 'fe', 'ff' ];
 
-	let _seed = 1234567;
-
 
 	const DEG2RAD = Math.PI / 180;
 	const RAD2DEG = 180 / Math.PI;
@@ -1923,48 +1943,6 @@ canvas {
 	}
 
 	/**
-	 * Performs a linear mapping from range `<a1, a2>` to range `<b1, b2>`
-	 * for the given value.
-	 *
-	 * @param {number} x - The value to be mapped.
-	 * @param {number} a1 - Minimum value for range A.
-	 * @param {number} a2 - Maximum value for range A.
-	 * @param {number} b1 - Minimum value for range B.
-	 * @param {number} b2 - Maximum value for range B.
-	 * @return {number} The mapped value.
-	 */
-	function mapLinear( x, a1, a2, b1, b2 ) {
-
-		return b1 + ( x - a1 ) * ( b2 - b1 ) / ( a2 - a1 );
-
-	}
-
-	/**
-	 * Returns the percentage in the closed interval `[0, 1]` of the given value
-	 * between the start and end point.
-	 *
-	 * @param {number} x - The start point
-	 * @param {number} y - The end point.
-	 * @param {number} value - A value between start and end.
-	 * @return {number} The interpolation factor.
-	 */
-	function inverseLerp( x, y, value ) {
-
-		// https://www.gamedev.net/tutorials/programming/general-and-gameplay-programming/inverse-lerp-a-super-useful-yet-often-overlooked-function-r5230/
-
-		if ( x !== y ) {
-
-			return ( value - x ) / ( y - x );
-
-		} else {
-
-			return 0;
-
-		}
-
-	}
-
-	/**
 	 * Returns a value linearly interpolated from two known points based on the given interval -
 	 * `t = 0` will return `x` and `t = 1` will return `y`.
 	 *
@@ -1976,265 +1954,6 @@ canvas {
 	function lerp( x, y, t ) {
 
 		return ( 1 - t ) * x + t * y;
-
-	}
-
-	/**
-	 * Smoothly interpolate a number from `x` to `y` in  a spring-like manner using a delta
-	 * time to maintain frame rate independent movement. For details, see
-	 * [Frame rate independent damping using lerp](http://www.rorydriscoll.com/2016/03/07/frame-rate-independent-damping-using-lerp/).
-	 *
-	 * @param {number} x - The current point.
-	 * @param {number} y - The target point.
-	 * @param {number} lambda - A higher lambda value will make the movement more sudden,
-	 * and a lower value will make the movement more gradual.
-	 * @param {number} dt - Delta time in seconds.
-	 * @return {number} The interpolated value.
-	 */
-	function damp( x, y, lambda, dt ) {
-
-		return lerp( x, y, 1 - Math.exp( - lambda * dt ) );
-
-	}
-
-	/**
-	 * Returns a value that alternates between `0` and the given `length` parameter.
-	 *
-	 * @param {number} x - The value to pingpong.
-	 * @param {number} [length=1] - The positive value the function will pingpong to.
-	 * @return {number} The alternated value.
-	 */
-	function pingpong( x, length = 1 ) {
-
-		// https://www.desmos.com/calculator/vcsjnyz7x4
-
-		return length - Math.abs( euclideanModulo( x, length * 2 ) - length );
-
-	}
-
-	/**
-	 * Returns a value in the range `[0,1]` that represents the percentage that `x` has
-	 * moved between `min` and `max`, but smoothed or slowed down the closer `x` is to
-	 * the `min` and `max`.
-	 *
-	 * See [Smoothstep](http://en.wikipedia.org/wiki/Smoothstep) for more details.
-	 *
-	 * @param {number} x - The value to evaluate based on its position between min and max.
-	 * @param {number} min - The min value. Any x value below min will be `0`.
-	 * @param {number} max - The max value. Any x value above max will be `1`.
-	 * @return {number} The alternated value.
-	 */
-	function smoothstep( x, min, max ) {
-
-		if ( x <= min ) return 0;
-		if ( x >= max ) return 1;
-
-		x = ( x - min ) / ( max - min );
-
-		return x * x * ( 3 - 2 * x );
-
-	}
-
-	/**
-	 * A [variation on smoothstep](https://en.wikipedia.org/wiki/Smoothstep#Variations)
-	 * that has zero 1st and 2nd order derivatives at x=0 and x=1.
-	 *
-	 * @param {number} x - The value to evaluate based on its position between min and max.
-	 * @param {number} min - The min value. Any x value below min will be `0`.
-	 * @param {number} max - The max value. Any x value above max will be `1`.
-	 * @return {number} The alternated value.
-	 */
-	function smootherstep( x, min, max ) {
-
-		if ( x <= min ) return 0;
-		if ( x >= max ) return 1;
-
-		x = ( x - min ) / ( max - min );
-
-		return x * x * x * ( x * ( x * 6 - 15 ) + 10 );
-
-	}
-
-	/**
-	 * Returns a random integer from `<low, high>` interval.
-	 *
-	 * @param {number} low - The lower value boundary.
-	 * @param {number} high - The upper value boundary
-	 * @return {number} A random integer.
-	 */
-	function randInt( low, high ) {
-
-		return low + Math.floor( Math.random() * ( high - low + 1 ) );
-
-	}
-
-	/**
-	 * Returns a random float from `<low, high>` interval.
-	 *
-	 * @param {number} low - The lower value boundary.
-	 * @param {number} high - The upper value boundary
-	 * @return {number} A random float.
-	 */
-	function randFloat( low, high ) {
-
-		return low + Math.random() * ( high - low );
-
-	}
-
-	/**
-	 * Returns a random integer from `<-range/2, range/2>` interval.
-	 *
-	 * @param {number} range - Defines the value range.
-	 * @return {number} A random float.
-	 */
-	function randFloatSpread( range ) {
-
-		return range * ( 0.5 - Math.random() );
-
-	}
-
-	/**
-	 * Returns a deterministic pseudo-random float in the interval `[0, 1]`.
-	 *
-	 * @param {number} [s] - The integer seed.
-	 * @return {number} A random float.
-	 */
-	function seededRandom( s ) {
-
-		if ( s !== undefined ) _seed = s;
-
-		// Mulberry32 generator
-
-		let t = _seed += 0x6D2B79F5;
-
-		t = Math.imul( t ^ t >>> 15, t | 1 );
-
-		t ^= t + Math.imul( t ^ t >>> 7, t | 61 );
-
-		return ( ( t ^ t >>> 14 ) >>> 0 ) / 4294967296;
-
-	}
-
-	/**
-	 * Converts degrees to radians.
-	 *
-	 * @param {number} degrees - A value in degrees.
-	 * @return {number} The converted value in radians.
-	 */
-	function degToRad( degrees ) {
-
-		return degrees * DEG2RAD;
-
-	}
-
-	/**
-	 * Converts radians to degrees.
-	 *
-	 * @param {number} radians - A value in radians.
-	 * @return {number} The converted value in degrees.
-	 */
-	function radToDeg( radians ) {
-
-		return radians * RAD2DEG;
-
-	}
-
-	/**
-	 * Returns `true` if the given number is a power of two.
-	 *
-	 * @param {number} value - The value to check.
-	 * @return {boolean} Whether the given number is a power of two or not.
-	 */
-	function isPowerOfTwo( value ) {
-
-		return ( value & ( value - 1 ) ) === 0 && value !== 0;
-
-	}
-
-	/**
-	 * Returns the smallest power of two that is greater than or equal to the given number.
-	 *
-	 * @param {number} value - The value to find a POT for.
-	 * @return {number} The smallest power of two that is greater than or equal to the given number.
-	 */
-	function ceilPowerOfTwo( value ) {
-
-		return Math.pow( 2, Math.ceil( Math.log( value ) / Math.LN2 ) );
-
-	}
-
-	/**
-	 * Returns the largest power of two that is less than or equal to the given number.
-	 *
-	 * @param {number} value - The value to find a POT for.
-	 * @return {number} The largest power of two that is less than or equal to the given number.
-	 */
-	function floorPowerOfTwo( value ) {
-
-		return Math.pow( 2, Math.floor( Math.log( value ) / Math.LN2 ) );
-
-	}
-
-	/**
-	 * Sets the given quaternion from the [Intrinsic Proper Euler Angles](https://en.wikipedia.org/wiki/Euler_angles)
-	 * defined by the given angles and order.
-	 *
-	 * Rotations are applied to the axes in the order specified by order:
-	 * rotation by angle `a` is applied first, then by angle `b`, then by angle `c`.
-	 *
-	 * @param {Quaternion} q - The quaternion to set.
-	 * @param {number} a - The rotation applied to the first axis, in radians.
-	 * @param {number} b - The rotation applied to the second axis, in radians.
-	 * @param {number} c - The rotation applied to the third axis, in radians.
-	 * @param {('XYX'|'XZX'|'YXY'|'YZY'|'ZXZ'|'ZYZ')} order - A string specifying the axes order.
-	 */
-	function setQuaternionFromProperEuler( q, a, b, c, order ) {
-
-		const cos = Math.cos;
-		const sin = Math.sin;
-
-		const c2 = cos( b / 2 );
-		const s2 = sin( b / 2 );
-
-		const c13 = cos( ( a + c ) / 2 );
-		const s13 = sin( ( a + c ) / 2 );
-
-		const c1_3 = cos( ( a - c ) / 2 );
-		const s1_3 = sin( ( a - c ) / 2 );
-
-		const c3_1 = cos( ( c - a ) / 2 );
-		const s3_1 = sin( ( c - a ) / 2 );
-
-		switch ( order ) {
-
-			case 'XYX':
-				q.set( c2 * s13, s2 * c1_3, s2 * s1_3, c2 * c13 );
-				break;
-
-			case 'YZY':
-				q.set( s2 * s1_3, c2 * s13, s2 * c1_3, c2 * c13 );
-				break;
-
-			case 'ZXZ':
-				q.set( s2 * c1_3, s2 * s1_3, c2 * s13, c2 * c13 );
-				break;
-
-			case 'XZX':
-				q.set( c2 * s13, s2 * s3_1, s2 * c3_1, c2 * c13 );
-				break;
-
-			case 'YXY':
-				q.set( s2 * c3_1, c2 * s13, s2 * s3_1, c2 * c13 );
-				break;
-
-			case 'ZYZ':
-				q.set( s2 * s3_1, s2 * c3_1, c2 * s13, c2 * c13 );
-				break;
-
-			default:
-				warn( 'MathUtils: .setQuaternionFromProperEuler() encountered an unknown order: ' + order );
-
-		}
 
 	}
 
@@ -2338,249 +2057,7 @@ canvas {
 	 * @hideconstructor
 	 */
 	const MathUtils = {
-		DEG2RAD: DEG2RAD,
-		RAD2DEG: RAD2DEG,
-		/**
-		 * Generate a [UUID](https://en.wikipedia.org/wiki/Universally_unique_identifier)
-		 * (universally unique identifier).
-		 *
-		 * @static
-		 * @method
-		 * @return {string} The UUID.
-		 */
-		generateUUID: generateUUID,
-		/**
-		 * Clamps the given value between min and max.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} value - The value to clamp.
-		 * @param {number} min - The min value.
-		 * @param {number} max - The max value.
-		 * @return {number} The clamped value.
-		 */
-		clamp: clamp,
-		/**
-		 * Computes the Euclidean modulo of the given parameters that
-		 * is `( ( n % m ) + m ) % m`.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} n - The first parameter.
-		 * @param {number} m - The second parameter.
-		 * @return {number} The Euclidean modulo.
-		 */
-		euclideanModulo: euclideanModulo,
-		/**
-		 * Performs a linear mapping from range `<a1, a2>` to range `<b1, b2>`
-		 * for the given value.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} x - The value to be mapped.
-		 * @param {number} a1 - Minimum value for range A.
-		 * @param {number} a2 - Maximum value for range A.
-		 * @param {number} b1 - Minimum value for range B.
-		 * @param {number} b2 - Maximum value for range B.
-		 * @return {number} The mapped value.
-		 */
-		mapLinear: mapLinear,
-		/**
-		 * Returns the percentage in the closed interval `[0, 1]` of the given value
-		 * between the start and end point.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} x - The start point
-		 * @param {number} y - The end point.
-		 * @param {number} value - A value between start and end.
-		 * @return {number} The interpolation factor.
-		 */
-		inverseLerp: inverseLerp,
-		/**
-		 * Returns a value linearly interpolated from two known points based on the given interval -
-		 * `t = 0` will return `x` and `t = 1` will return `y`.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} x - The start point
-		 * @param {number} y - The end point.
-		 * @param {number} t - The interpolation factor in the closed interval `[0, 1]`.
-		 * @return {number} The interpolated value.
-		 */
-		lerp: lerp,
-		/**
-		 * Smoothly interpolate a number from `x` to `y` in  a spring-like manner using a delta
-		 * time to maintain frame rate independent movement. For details, see
-		 * [Frame rate independent damping using lerp](http://www.rorydriscoll.com/2016/03/07/frame-rate-independent-damping-using-lerp/).
-		 *
-		 * @static
-		 * @method
-		 * @param {number} x - The current point.
-		 * @param {number} y - The target point.
-		 * @param {number} lambda - A higher lambda value will make the movement more sudden,
-		 * and a lower value will make the movement more gradual.
-		 * @param {number} dt - Delta time in seconds.
-		 * @return {number} The interpolated value.
-		 */
-		damp: damp,
-		/**
-		 * Returns a value that alternates between `0` and the given `length` parameter.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} x - The value to pingpong.
-		 * @param {number} [length=1] - The positive value the function will pingpong to.
-		 * @return {number} The alternated value.
-		 */
-		pingpong: pingpong,
-		/**
-		 * Returns a value in the range `[0,1]` that represents the percentage that `x` has
-		 * moved between `min` and `max`, but smoothed or slowed down the closer `x` is to
-		 * the `min` and `max`.
-		 *
-		 * See [Smoothstep](http://en.wikipedia.org/wiki/Smoothstep) for more details.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} x - The value to evaluate based on its position between min and max.
-		 * @param {number} min - The min value. Any x value below min will be `0`.
-		 * @param {number} max - The max value. Any x value above max will be `1`.
-		 * @return {number} The alternated value.
-		 */
-		smoothstep: smoothstep,
-		/**
-		 * A [variation on smoothstep](https://en.wikipedia.org/wiki/Smoothstep#Variations)
-		 * that has zero 1st and 2nd order derivatives at x=0 and x=1.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} x - The value to evaluate based on its position between min and max.
-		 * @param {number} min - The min value. Any x value below min will be `0`.
-		 * @param {number} max - The max value. Any x value above max will be `1`.
-		 * @return {number} The alternated value.
-		 */
-		smootherstep: smootherstep,
-		/**
-		 * Returns a random integer from `<low, high>` interval.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} low - The lower value boundary.
-		 * @param {number} high - The upper value boundary
-		 * @return {number} A random integer.
-		 */
-		randInt: randInt,
-		/**
-		 * Returns a random float from `<low, high>` interval.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} low - The lower value boundary.
-		 * @param {number} high - The upper value boundary
-		 * @return {number} A random float.
-		 */
-		randFloat: randFloat,
-		/**
-		 * Returns a random integer from `<-range/2, range/2>` interval.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} range - Defines the value range.
-		 * @return {number} A random float.
-		 */
-		randFloatSpread: randFloatSpread,
-		/**
-		 * Returns a deterministic pseudo-random float in the interval `[0, 1]`.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} [s] - The integer seed.
-		 * @return {number} A random float.
-		 */
-		seededRandom: seededRandom,
-		/**
-		 * Converts degrees to radians.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} degrees - A value in degrees.
-		 * @return {number} The converted value in radians.
-		 */
-		degToRad: degToRad,
-		/**
-		 * Converts radians to degrees.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} radians - A value in radians.
-		 * @return {number} The converted value in degrees.
-		 */
-		radToDeg: radToDeg,
-		/**
-		 * Returns `true` if the given number is a power of two.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} value - The value to check.
-		 * @return {boolean} Whether the given number is a power of two or not.
-		 */
-		isPowerOfTwo: isPowerOfTwo,
-		/**
-		 * Returns the smallest power of two that is greater than or equal to the given number.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} value - The value to find a POT for.
-		 * @return {number} The smallest power of two that is greater than or equal to the given number.
-		 */
-		ceilPowerOfTwo: ceilPowerOfTwo,
-		/**
-		 * Returns the largest power of two that is less than or equal to the given number.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} value - The value to find a POT for.
-		 * @return {number} The largest power of two that is less than or equal to the given number.
-		 */
-		floorPowerOfTwo: floorPowerOfTwo,
-		/**
-		 * Sets the given quaternion from the [Intrinsic Proper Euler Angles](https://en.wikipedia.org/wiki/Euler_angles)
-		 * defined by the given angles and order.
-		 *
-		 * Rotations are applied to the axes in the order specified by order:
-		 * rotation by angle `a` is applied first, then by angle `b`, then by angle `c`.
-		 *
-		 * @static
-		 * @method
-		 * @param {Quaternion} q - The quaternion to set.
-		 * @param {number} a - The rotation applied to the first axis, in radians.
-		 * @param {number} b - The rotation applied to the second axis, in radians.
-		 * @param {number} c - The rotation applied to the third axis, in radians.
-		 * @param {('XYX'|'XZX'|'YXY'|'YZY'|'ZXZ'|'ZYZ')} order - A string specifying the axes order.
-		 */
-		setQuaternionFromProperEuler: setQuaternionFromProperEuler,
-		/**
-		 * Normalizes the given value according to the given typed array.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} value - The float value in the range `[0,1]` to normalize.
-		 * @param {TypedArray} array - The typed array that defines the data type of the value.
-		 * @return {number} The normalize value.
-		 */
-		normalize: normalize,
-		/**
-		 * Denormalizes the given value according to the given typed array.
-		 *
-		 * @static
-		 * @method
-		 * @param {number} value - The value to denormalize.
-		 * @param {TypedArray} array - The typed array that defines the data type of the value.
-		 * @return {number} The denormalize (float) value in the range `[0,1]`.
-		 */
-		denormalize: denormalize
-	};
+		DEG2RAD: DEG2RAD};
 
 	/**
 	 * Class representing a 2D vector. A 2D vector is an ordered pair of numbers
@@ -46596,6 +46073,53 @@ void main() {
 	    -(v[0] - x) * uy + (v[1] - y) * ux,
 	  ]);
 	}
+	// Solid view keeps the editor's axes and point identities. Only the net uses
+	// an AB-aligned coordinate frame for its hinge construction.
+	function solidGeometry(shape, polygon, h) {
+	  const faces = geometry(shape, polygon, h, 0),
+	    a = polygon[0],
+	    b = polygon[1],
+	    length = Math.hypot(b[0] - a[0], b[1] - a[1]),
+	    ux = (b[0] - a[0]) / length,
+	    uy = (b[1] - a[1]) / length;
+	  return faces.map((f) => ({
+	    ...f,
+	    vertices: f.vertices.map((v) => {
+	      const x = v[0],
+	        y = shape.kind === "prism" ? v[2] : v[1],
+	        z = shape.kind === "prism" ? v[1] : v[2];
+	      return [a[0] + x * ux - y * uy, a[1] + x * uy + y * ux, z];
+	    }),
+	  }));
+	}
+	function snapVertex(p, index, target, threshold = 0.3) {
+	  const moved = moveVertex(p, index, target),
+	    point = moved[index],
+	    other = p.filter((_, i) => i !== index),
+	    snap = [...point];
+	  for (let axis = 0; axis < 2; axis++) {
+	    const nearest = other.reduce(
+	      (best, v) =>
+	        Math.abs(v[axis] - point[axis]) < Math.abs(best - point[axis])
+	          ? v[axis]
+	          : best,
+	      other[0][axis],
+	    );
+	    const grid = Math.round(point[axis] * 2) / 2;
+	    if (Math.abs(nearest - point[axis]) <= threshold) snap[axis] = nearest;
+	    else if (Math.abs(grid - point[axis]) <= threshold * 0.5) snap[axis] = grid;
+	  }
+	  for (const q of [snap, [snap[0], point[1]], [point[0], snap[1]]]) {
+	    const candidate = moved.map((v, i) => (i === index ? [...q] : [...v]));
+	    if (!validPolygon(candidate)) continue;
+	    const checked = moveVertex(p, index, q);
+	    if (Math.hypot(checked[index][0] - q[0], checked[index][1] - q[1]) < 1e-7) {
+	      checked[index] = [...q];
+	      return checked;
+	    }
+	  }
+	  return moved;
+	}
 	function triangulate(f) {
 	  return Array.from({ length: f.vertices.length - 2 }, (_, i) => [
 	    0,
@@ -46694,7 +46218,7 @@ void main() {
 	  return faces;
 	}
 
-	const layout = `<section id="left"><header><div class="eyebrow">GEOMETRY CLASSROOM</div><h1>입체도형 연구실</h1></header><div id="solid-wrap"><canvas id="solid-canvas" aria-label="회전 가능한 입체도형"></canvas><div id="vertex-labels" aria-hidden="true"></div><button id="height-handle" role="slider" aria-label="드래그로 높이 조절" aria-valuemin="2" aria-valuemax="15" aria-valuenow="6" title="위아래로 끌어 높이 조절"><span aria-hidden="true">↕</span><small>높이</small></button><div class="view-tools"><button id="zoom-in" aria-label="확대">＋</button><button id="zoom-out" aria-label="축소">−</button><button id="reset-view">시점 복귀</button></div></div><div id="controls"><div class="section-title"><span>입체도형 설정</span><button id="collapse" aria-expanded="true">접기</button></div><div id="settings"><div class="control-grid"><label>입체도형<select id="shape"><option value="prism">각기둥</option><option value="pyramid">각뿔</option></select></label><label>밑면 모양<select id="base-shape"><option value="3">삼각형</option><option value="4">사각형</option></select></label></div><div class="editor-heading"><span>밑면 모양 만들기</span><button id="reset-base">모양 초기화</button></div><svg id="base-editor" viewBox="0 0 320 180" role="group" aria-label="꼭짓점을 드래그하는 밑면 편집 영역"></svg><p class="note">점을 끌어 밑면을 바꾸고, 입체도형 위의 손잡이로 높이를 조절하세요.</p><p id="error" role="status"></p></div><div class="unfold"><label for="progress">펼쳐서 살펴보기</label><input id="progress" aria-label="전개 진행률" type="range" min="0" max="1" step=".001" value="1"></div></div></section><section id="board" aria-label="전개도"><canvas id="net-canvas" aria-label="면을 선택할 수 있는 전개도"></canvas></section>`;
+	const layout = `<section id="left"><header><div class="eyebrow">GEOMETRY CLASSROOM</div><h1>입체도형 연구실</h1></header><div id="solid-wrap"><canvas id="solid-canvas" aria-label="회전 가능한 입체도형"></canvas><div id="vertex-labels" aria-hidden="true"></div><div class="height-control"><label for="height">높이</label><input id="height" type="range" min="2" max="15" step=".1" value="6" aria-label="높이" aria-orientation="vertical"></div><div class="view-tools"><button id="zoom-in" aria-label="확대">＋</button><button id="zoom-out" aria-label="축소">−</button><button id="reset-view">시점 복귀</button></div></div><div id="controls"><div class="section-title"><span>입체도형 설정</span><button id="collapse" aria-expanded="true">접기</button></div><div id="settings"><div class="control-grid"><label>입체도형<select id="shape"><option value="prism">각기둥</option><option value="pyramid">각뿔</option></select></label><label>밑면 모양<select id="base-shape"><option value="3">삼각형</option><option value="4">사각형</option></select></label></div><div class="editor-heading"><span>밑면 모양 만들기</span><button id="reset-base">모양 초기화</button></div><svg id="base-editor" viewBox="0 0 320 180" role="group" aria-label="꼭짓점을 드래그하는 밑면 편집 영역"></svg><p class="note">점을 끌어 밑면을 바꾸세요. 가까이 놓으면 수평·수직에 맞춰집니다.</p><p id="error" role="status"></p></div><div class="unfold"><label for="progress">펼쳐서 살펴보기</label><input id="progress" aria-label="전개 진행률" type="range" min="0" max="1" step=".001" value="1"></div></div></section><section id="board" aria-label="전개도"><canvas id="net-canvas" aria-label="면을 선택할 수 있는 전개도"></canvas></section>`;
 
 	const colors$1 = ["#3478bd", "#bc7146", "#628b58", "#8b67ad"];
 	function mountEditor(svg, getPolygon, onChange) {
@@ -46708,6 +46232,17 @@ void main() {
         return `<g data-vertex="${i}" role="button" tabindex="0" aria-label="꼭짓점 ${"ABCD"[i]} 이동" transform="translate(${x} ${y})"><circle class="hit-target" r="26" fill="transparent"/><circle class="vertex-dot" r="6.5" fill="${colors$1[i]}" stroke="white" stroke-width="2"/><text x="10" y="-10" fill="${colors$1[i]}" font-size="12" font-weight="bold" pointer-events="none">${"ABCD"[i]}</text></g>`;
       })
       .join("")}`;
+	  }
+	  function showGuides(index) {
+	    const p = getPolygon(),
+	      q = p[index],
+	      [x, y] = screen(q),
+	      sameX = p.some((v, i) => i !== index && Math.abs(v[0] - q[0]) < 1e-9),
+	      sameY = p.some((v, i) => i !== index && Math.abs(v[1] - q[1]) < 1e-9);
+	    svg.insertAdjacentHTML(
+	      "beforeend",
+	      `<g class="snap-guides" pointer-events="none" stroke="#d39144" stroke-width="1" stroke-dasharray="4 3">${sameX ? '<line x1="' + x + '" y1="0" x2="' + x + '" y2="180"/>' : ""}${sameY ? '<line x1="0" y1="' + y + '" x2="320" y2="' + y + '"/>' : ""}</g>`,
+	    );
 	  }
 	  function world(e) {
 	    const p = svg.createSVGPoint();
@@ -46743,16 +46278,20 @@ void main() {
 	    e.preventDefault();
 	    const q = world(e);
 	    onChange(
-	      moveVertex(getPolygon(), drag.index, [
-	        q[0] + drag.offset[0],
-	        q[1] + drag.offset[1],
-	      ]),
+	      snapVertex(
+	        getPolygon(),
+	        drag.index,
+	        [q[0] + drag.offset[0], q[1] + drag.offset[1]],
+	        7 / (17 * Math.hypot(svg.getScreenCTM().a, svg.getScreenCTM().b)),
+	      ),
 	    );
 	    render();
+	    showGuides(drag.index);
 	  });
 	  function end(e) {
 	    if (drag?.id !== e.pointerId) return;
 	    drag = null;
+	    svg.querySelector(".snap-guides")?.remove();
 	    svg.classList.remove("dragging");
 	    if (svg.hasPointerCapture(e.pointerId))
 	      svg.releasePointerCapture(e.pointerId);
@@ -46761,6 +46300,7 @@ void main() {
 	  svg.addEventListener("pointercancel", end);
 	  svg.addEventListener("lostpointercapture", () => {
 	    drag = null;
+	    svg.querySelector(".snap-guides")?.remove();
 	    svg.classList.remove("dragging");
 	  });
 	  svg.addEventListener("keydown", (e) => {
@@ -46775,7 +46315,7 @@ void main() {
 	    e.preventDefault();
 	    const i = Number(handle.dataset.vertex),
 	      p = getPolygon();
-	    onChange(moveVertex(p, i, [p[i][0] + delta[0], p[i][1] + delta[1]]));
+	    onChange(snapVertex(p, i, [p[i][0] + delta[0], p[i][1] + delta[1]], 0.08));
 	    render();
 	    svg.querySelector(`[data-vertex="${i}"]`).focus({ preventScroll: true });
 	  });
@@ -46804,9 +46344,7 @@ void main() {
 	  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 	  renderer.setClearColor(0xffffff, 0);
 	  const scene = new Scene(),
-	    camera = flat
-	      ? new OrthographicCamera(-20, 20, 20, -20, 0.1, 1000)
-	      : new PerspectiveCamera(38, 1, 0.1, 1000),
+	    camera = new OrthographicCamera(-20, 20, 20, -20, 0.1, 1000),
 	    group = new Group();
 	  scene.add(group, new AmbientLight(0xffffff, 2));
 	  let light = new DirectionalLight(0xffffff, 1);
@@ -46824,7 +46362,8 @@ void main() {
 	  throw e;
 	}
 	let orbit = new OrbitControls(solid.camera, $("solid-canvas")),
-	  netBox;
+	  netBox,
+	  solidHalfHeight = 10;
 	const box = (data) =>
 	  new Box3().setFromPoints(
 	    data.flatMap((f) => f.vertices.map((p) => new Vector3(...p))),
@@ -46872,28 +46411,52 @@ void main() {
 	    );
 	  }
 	}
+	function solidData() {
+	  return solidGeometry(shape(), sides(), h);
+	}
+	function setSolidFrustum() {
+	  const aspect = $("solid-canvas").clientWidth / $("solid-canvas").clientHeight;
+	  solid.camera.left = -solidHalfHeight * aspect;
+	  solid.camera.right = solidHalfHeight * aspect;
+	  solid.camera.top = solidHalfHeight;
+	  solid.camera.bottom = -solidHalfHeight;
+	  solid.camera.updateProjectionMatrix();
+	}
+	function fitSolid(preserveDirection = false) {
+	  const data = solidData(),
+	    center = box(data).getCenter(new Vector3()),
+	    direction = preserveDirection
+	      ? solid.camera.position.clone().sub(orbit.target).normalize()
+	      : new Vector3(0, -0.95, 1.65).normalize();
+	  orbit.target.copy(center);
+	  solid.camera.position.copy(center).addScaledVector(direction, 100);
+	  solid.camera.zoom = 1;
+	  solid.camera.lookAt(center);
+	  solid.camera.updateMatrixWorld();
+	  const cameraPoints = data.flatMap((f) =>
+	      f.vertices.map((p) =>
+	        new Vector3(...p).applyMatrix4(solid.camera.matrixWorldInverse),
+	      ),
+	    ),
+	    aspect = $("solid-canvas").clientWidth / $("solid-canvas").clientHeight;
+	  solidHalfHeight =
+	    Math.max(
+	      ...cameraPoints.map((p) =>
+	        Math.max(Math.abs(p.y), Math.abs(p.x) / aspect),
+	      ),
+	    ) * 1.25;
+	  setSolidFrustum();
+	  orbit.update();
+	}
 	function resetView() {
-	  const b = box(geometry(shape(), sides(), h, 0)),
-	    center = b.getCenter(new Vector3()),
-	    size = b.getSize(new Vector3()).length(),
-	    vertical = kind === "prism";
 	  orbit.dispose();
-	  solid.camera.up.set(0, vertical ? 1 : 0, vertical ? 0 : 1);
+	  solid.camera.up.set(0, 0, 1);
 	  orbit = new OrbitControls(solid.camera, $("solid-canvas"));
 	  orbit.enableDamping = true;
 	  orbit.enablePan = false;
-	  orbit.target.copy(center);
-	  orbit.minDistance = size * 0.65;
-	  orbit.maxDistance = size * 4;
-	  solid.camera.position
-	    .copy(center)
-	    .add(
-	      vertical
-	        ? new Vector3(size * 0.9, size * 0.8, size * 1.3)
-	        : new Vector3(size * 0.9, -size * 1.25, size * 0.9),
-	    );
-	  solid.camera.lookAt(center);
-	  orbit.update();
+	  orbit.minZoom = 0.35;
+	  orbit.maxZoom = 4;
+	  fitSolid();
 	}
 	function netCamera() {
 	  if (!netBox) return;
@@ -46917,10 +46480,15 @@ void main() {
 	}
 	let vertexLabels = [];
 	function labels() {
-	  const base = geometry(shape(), sides(), h, 0).find((f) => f.base);
+	  const base = solidData().find(
+	    (f) => f.id === (kind === "prism" ? "base1" : "base0"),
+	  );
 	  $("vertex-labels").innerHTML = letters
 	    .slice(0, n)
-	    .map((v, i) => `<span style="color:${colors[i]}">${v}</span>`)
+	    .map(
+	      (v, i) =>
+	        `<span class="vertex-marker" data-label="${v}" style="color:${colors[i]}"><i></i><b>${v}</b></span>`,
+	    )
 	    .join("");
 	  vertexLabels = Array.from($("vertex-labels").children).map((el, i) => ({
 	    el,
@@ -46928,7 +46496,7 @@ void main() {
 	  }));
 	}
 	function rebuild(reset = false) {
-	  draw(solid, geometry(shape(), sides(), h, 0));
+	  draw(solid, solidData());
 	  draw(net, geometry(shape(), sides(), h, t));
 	  netBox = box(geometry(shape(), sides(), h, 1));
 	  if (reset) resetView();
@@ -46937,7 +46505,7 @@ void main() {
 	  $("app").dataset.shape = shape().id;
 	  $("app").dataset.vertices = JSON.stringify(sides());
 	  $("app").dataset.height = h;
-	  $("height-handle").setAttribute("aria-valuenow", h.toFixed(2));
+	  $("height").value = h;
 	  $("app").dataset.progress = t;
 	  $("app").dataset.selected = selected || "";
 	}
@@ -46964,111 +46532,19 @@ void main() {
 	  editor.render();
 	  rebuild(true);
 	};
-	function projectPoint(p) {
-	  const q = p.clone().project(solid.camera);
-	  return new Vector2(
-	    (q.x + 1) * 0.5 * $("solid-wrap").clientWidth,
-	    (-q.y + 1) * 0.5 * $("solid-wrap").clientHeight,
-	  );
-	}
-	function heightAnchor() {
-	  const [x, y] = centroid(canonicalPolygon(sides()));
-	  return kind === "prism"
-	    ? new Vector3(x, h, y)
-	    : new Vector3(x, y, h);
-	}
 	function ensureVisible() {
-	  const data = geometry(shape(), sides(), h, 0);
 	  if (
-	    !data.some((f) =>
+	    solidData().some((f) =>
 	      f.vertices.some((v) => {
 	        const q = new Vector3(...v).project(solid.camera);
-	        return Math.abs(q.x) > 0.82 || Math.abs(q.y) > 0.82;
+	        return Math.abs(q.x) > 0.85 || Math.abs(q.y) > 0.85;
 	      }),
 	    )
 	  )
-	    return;
-	  const b = box(data),
-	    center = b.getCenter(new Vector3()),
-	    size = b.getSize(new Vector3()).length(),
-	    direction = solid.camera.position.clone().sub(orbit.target).normalize(),
-	    distance = Math.max(
-	      solid.camera.position.distanceTo(orbit.target),
-	      size * 1.75,
-	    );
-	  orbit.target.copy(center);
-	  solid.camera.position.copy(center).addScaledVector(direction, distance);
-	  orbit.minDistance = size * 0.65;
-	  orbit.maxDistance = size * 4;
-	  orbit.update();
+	    fitSolid(true);
 	}
-	let heightDrag = null;
-	$("height-handle").onpointerdown = (e) => {
-	  if (heightDrag) return;
-	  e.preventDefault();
-	  e.stopPropagation();
-	  orbit.enabled = false;
-	  heightDrag = { id: e.pointerId, x: e.clientX, y: e.clientY };
-	  $("height-handle").setPointerCapture(e.pointerId);
-	  $("height-handle").classList.add("dragging");
-	};
-	$("height-handle").onpointermove = (e) => {
-	  if (!heightDrag || heightDrag.id !== e.pointerId) return;
-	  e.preventDefault();
-	  const anchor = heightAnchor(),
-	    up =
-	      kind === "prism"
-	        ? new Vector3(0, 1, 0)
-	        : new Vector3(0, 0, 1),
-	    axis = projectPoint(anchor.clone().add(up)).sub(projectPoint(anchor)),
-	    delta = new Vector2(
-	      e.clientX - heightDrag.x,
-	      e.clientY - heightDrag.y,
-	    );
-	  heightDrag.x = e.clientX;
-	  heightDrag.y = e.clientY;
-	  // When looking along the height axis, its projection collapses. Keep the
-	  // same up/down gesture usable from this view with the camera's world scale.
-	  if (axis.lengthSq() <= 1) {
-	    const distance = solid.camera.position.distanceTo(orbit.target);
-	    axis.set(
-	      0,
-	      -$("solid-wrap").clientHeight /
-	        (2 *
-	          distance *
-	          Math.tan(MathUtils.degToRad(solid.camera.fov / 2))),
-	    );
-	  }
-	  if (axis.lengthSq() > 1) {
-	    h = Math.min(15, Math.max(2, h + delta.dot(axis) / axis.lengthSq()));
-	    rebuild();
-	    ensureVisible();
-	  }
-	};
-	function endHeight(e) {
-	  if (heightDrag?.id !== e.pointerId) return;
-	  heightDrag = null;
-	  orbit.enabled = true;
-	  $("height-handle").classList.remove("dragging");
-	  if ($("height-handle").hasPointerCapture(e.pointerId))
-	    $("height-handle").releasePointerCapture(e.pointerId);
-	}
-	$("height-handle").onpointerup = endHeight;
-	$("height-handle").onpointercancel = endHeight;
-	$("height-handle").onlostpointercapture = () => {
-	  heightDrag = null;
-	  orbit.enabled = true;
-	  $("height-handle").classList.remove("dragging");
-	};
-	$("height-handle").onkeydown = (e) => {
-	  let next = h;
-	  if (e.key === "ArrowUp" || e.key === "ArrowRight") next += 0.5;
-	  else if (e.key === "ArrowDown" || e.key === "ArrowLeft") next -= 0.5;
-	  else if (e.key === "Home") next = 2;
-	  else if (e.key === "End") next = 15;
-	  else return;
-	  e.preventDefault();
-	  h = Math.max(2, Math.min(15, next));
+	$("height").oninput = () => {
+	  h = Number($("height").value);
 	  rebuild();
 	  ensureVisible();
 	};
@@ -47080,15 +46556,12 @@ void main() {
 	};
 	$("reset-view").onclick = resetView;
 	for (const [id, factor] of [
-	  ["zoom-in", 0.82],
-	  ["zoom-out", 1.2],
+	  ["zoom-in", 1.2],
+	  ["zoom-out", 1 / 1.2],
 	])
 	  $(id).onclick = () => {
-	    solid.camera.position
-	      .sub(orbit.target)
-	      .multiplyScalar(factor)
-	      .add(orbit.target);
-	    orbit.update();
+	    solid.camera.zoom = Math.min(4, Math.max(0.35, solid.camera.zoom * factor));
+	    solid.camera.updateProjectionMatrix();
 	  };
 	$("collapse").onclick = () => {
 	  const hidden = ($("settings").hidden = !$("settings").hidden);
@@ -47125,9 +46598,9 @@ void main() {
 	}
 	function resize() {
 	  const r = $("solid-wrap").getBoundingClientRect();
-	  solid.renderer.setSize(r.width, r.height, false);
-	  solid.camera.aspect = r.width / r.height;
-	  solid.camera.updateProjectionMatrix();
+	  solid.renderer.setSize(r.width - 52, r.height, false);
+	  setSolidFrustum();
+	  ensureVisible();
 	  net.renderer.setSize($("board").clientWidth, $("board").clientHeight, false);
 	  netCamera();
 	}
@@ -47137,16 +46610,10 @@ void main() {
 	new ResizeObserver(resize).observe($("board"));
 	function animate() {
 	  orbit.update();
-	  const handle = projectPoint(heightAnchor());
-	  $("height-handle").style.left =
-	    Math.max(24, Math.min($("solid-wrap").clientWidth - 24, handle.x)) + "px";
-	  $("height-handle").style.top =
-	    Math.max(38, Math.min($("solid-wrap").clientHeight - 48, handle.y - 8)) +
-	    "px";
 	  for (const { el, p } of vertexLabels) {
 	    const q = p.clone().project(solid.camera);
-	    el.style.left = (q.x + 1) * 0.5 * $("solid-wrap").clientWidth + "px";
-	    el.style.top = (-q.y + 1) * 0.5 * $("solid-wrap").clientHeight + "px";
+	    el.style.left = (q.x + 1) * 0.5 * $("solid-canvas").clientWidth + "px";
+	    el.style.top = (-q.y + 1) * 0.5 * $("solid-canvas").clientHeight + "px";
 	  }
 	  solid.renderer.render(solid.scene, solid.camera);
 	  net.renderer.render(net.scene, net.camera);
