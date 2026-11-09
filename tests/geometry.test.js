@@ -1,119 +1,122 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SHAPES, metrics, geometry, area, TAU } from "../src/geometry.js";
-const close = (a, b, tol = 1e-8) =>
-  assert.ok(Math.abs(a - b) < tol, `${a} ≠ ${b}`);
-const dist = (a, b) => Math.hypot(...a.map((v, i) => v - b[i]));
+import {
+  SHAPES,
+  basePolygon,
+  geometry,
+  area,
+  validSides,
+  sideLimits,
+  centroid,
+} from "../src/geometry.js";
+const close = (a, b) => assert.ok(Math.abs(a - b) < 1e-7, `${a} != ${b}`),
+  distance = (a, b) => Math.hypot(...a.map((x, i) => x - b[i]));
 function overlap(A, B) {
-  // Strict convex SAT: shared edges / tangent points are allowed.
-  for (const poly of [A, B])
-    for (let i = 0; i < poly.length; i++) {
-      const p = poly[i],
-        q = poly[(i + 1) % poly.length],
-        axis = [p[1] - q[1], q[0] - p[0]],
-        len = Math.hypot(...axis);
-      if (len < 1e-10) continue;
-      const project = (P) =>
-          P.map((p) => (p[0] * axis[0] + p[1] * axis[1]) / len),
-        a = project(A),
-        b = project(B);
+  for (const p of [A, B])
+    for (let i = 0; i < p.length; i++) {
+      const a = p[i],
+        b = p[(i + 1) % p.length],
+        u = [a[1] - b[1], b[0] - a[0]],
+        len = Math.hypot(...u);
+      if (len < 1e-9) continue;
+      const project = (P) => P.map((v) => (v[0] * u[0] + v[1] * u[1]) / len),
+        x = project(A),
+        y = project(B);
       if (
-        Math.min(Math.max(...a), Math.max(...b)) -
-          Math.max(Math.min(...a), Math.min(...b)) <
+        Math.min(Math.max(...x), Math.max(...y)) -
+          Math.max(Math.min(...x), Math.min(...y)) <
         1e-7
       )
         return false;
     }
   return true;
 }
-for (const shape of SHAPES) {
-  test(`${shape.name}: parameter extremes, area conservation, final coplanarity`, () => {
-    for (const a of [2, 4, 10])
+const cases = {
+  3: [
+    [4, 5, 6],
+    [3, 4, 5],
+    [2, 2, 3.9],
+    [2, 9, 10],
+    [10, 10, 2],
+    [2, 10, 9.9],
+  ],
+  4: [
+    [4, 6, 5, 7],
+    [2, 2, 2, 5.9],
+    [10, 2, 2, 7],
+    [2, 10, 9.9, 2],
+    [10, 10, 2, 2],
+    [3, 4, 5, 6],
+  ],
+};
+for (const shape of SHAPES)
+  test(`${shape.name}: independent sides, rigid hinges, no overlaps`, () => {
+    for (const s of cases[shape.n])
       for (const h of [2, 6, 15]) {
-        const m = metrics(shape, a, h),
-          flat = geometry(shape, a, h, 1),
-          fold = geometry(shape, a, h, 0),
-          curved = !shape.n;
-        assert.equal(flat.length, m.faces);
-        assert.equal(new Set(flat.map((f) => f.id)).size, m.faces);
-        close(
-          flat.reduce((s, f) => s + area(f), 0),
-          m.S,
-          curved ? m.S * 0.00015 : 1e-7,
-        );
-        close(
-          fold.reduce((s, f) => s + area(f), 0),
-          m.S,
-          curved ? m.S * 0.00015 : 1e-7,
-        );
-        for (const f of flat) for (const v of f.vertices) close(v[2], 0, 1e-8);
-        for (const t of [0.15, 0.4, 0.7, 0.9]) {
-          const mid = geometry(shape, a, h, t);
-          for (const f of mid) {
-            assert.ok(f.vertices.flat().every(Number.isFinite));
-            close(
-              area(f),
-              area(flat.find((g) => g.id === f.id)),
-              curved ? m.S * 0.0002 : 1e-7,
+        const p = basePolygon(s);
+        for (let i = 0; i < s.length; i++)
+          close(distance(p[i], p[(i + 1) % s.length]), s[i]);
+        const closed = geometry(shape, s, h, 0),
+          flat = geometry(shape, s, h, 1);
+        assert.equal(flat.length, shape.n + (shape.kind === "prism" ? 2 : 1));
+        for (const f of flat) for (const v of f.vertices) close(v[2], 0);
+        for (let i = 0; i < flat.length; i++)
+          for (let j = i + 1; j < flat.length; j++)
+            assert.equal(
+              overlap(flat[i].vertices, flat[j].vertices),
+              false,
+              JSON.stringify({ s, h, faces: [i, j] }),
             );
+        for (const t of [0, 0.001, 0.2, 0.5, 0.9, 0.999, 1])
+          for (const [i, f] of geometry(shape, s, h, t).entries()) {
+            close(area(f), area(closed[i]));
+            assert.ok(f.vertices.flat().every(Number.isFinite));
+            for (let j = 0; j < f.vertices.length; j++)
+              for (let k = j + 1; k < f.vertices.length; k++)
+                close(
+                  distance(f.vertices[j], f.vertices[k]),
+                  distance(closed[i].vertices[j], closed[i].vertices[k]),
+                );
           }
-        }
-        if (shape.n) {
-          assert.equal(m.edges, shape.n * (shape.kind === "prism" ? 3 : 2));
-          assert.equal(
-            m.vertices,
-            shape.kind === "prism" ? 2 * shape.n : shape.n + 1,
+        if (shape.kind === "prism")
+          close(
+            closed.reduce((a, f) => a + area(f), 0),
+            2 * area({ vertices: p.map((v) => [...v, 0]) }) +
+              s.reduce((a, b) => a + b, 0) * h,
           );
-          for (let i = 0; i < flat.length; i++)
-            for (let j = i + 1; j < flat.length; j++)
-              assert.equal(
-                overlap(flat[i].vertices, flat[j].vertices),
-                false,
-                `overlap ${i},${j}`,
-              );
-        } else {
-          const side = flat.find((f) => !f.base),
-            base = flat.find((f) => f.base);
-          if (shape.kind === "cylinder") {
-            close(dist(side.vertices[0], side.vertices[512]), TAU * a);
-            close(dist(side.vertices[0], side.vertices[1]), h);
-            const xs = side.vertices.map((p) => p[0]);
-            for (const f of flat.filter((f) => f.base)) {
-              const ys = f.vertices.map((p) => p[1]);
-              assert.ok(
-                Math.min(...ys) >= h / 2 - 1e-7 ||
-                  Math.max(...ys) <= -h / 2 + 1e-7,
-              );
-            }
-            close(Math.max(...xs) - Math.min(...xs), TAU * a);
-          } else {
-            const apex = side.vertices[0],
-              arc = side.vertices.slice(1);
-            for (const p of arc) close(dist(apex, p), m.l);
-            close(m.theta, (360 * a) / Math.hypot(a, h));
-            close(((m.theta * Math.PI) / 180) * m.l, TAU * a);
-            close((0.5 * m.l * m.l * m.theta * Math.PI) / 180, m.L);
-            for (const p of base.vertices) assert.ok(p[1] >= m.l - 1e-7);
-            close(dist(base.vertices[0], arc[128]), 0);
-          }
+        else {
+          const apex = closed[1].vertices[2],
+            center = centroid(p);
+          close(apex[0], center[0]);
+          close(apex[1], center[1]);
+          close(apex[2], h);
         }
       }
   });
-  test(`${shape.name}: rigid polygon hinges / continuous curve mesh`, () => {
-    for (const t of [0, 0.001, 0.25, 0.5, 0.75, 0.999, 1]) {
-      const faces = geometry(shape, 4, 6, t);
-      for (const f of faces) {
-        assert.ok(area(f) > 0);
-        if (shape.n) {
-          let original = geometry(shape, 4, 6, 0).find((g) => g.id === f.id);
-          for (let i = 0; i < f.vertices.length; i++)
-            for (let j = i + 1; j < f.vertices.length; j++)
-              close(
-                dist(f.vertices[i], f.vertices[j]),
-                dist(original.vertices[i], original.vertices[j]),
-              );
+test("Invalid polygons rejected; slider bounds retain valid polygons", () => {
+  for (const s of [
+    [2, 2, 4],
+    [2, 2, 10],
+    [2, 2, 2, 6],
+    [0, 4, 5],
+    [NaN, 4, 5],
+  ]) {
+    assert.equal(validSides(s), false);
+    assert.throws(() => basePolygon(s), RangeError);
+  }
+  for (const n of [3, 4])
+    for (const s of cases[n])
+      for (let i = 0; i < n; i++) {
+        const [lo, hi] = sideLimits(s, i);
+        for (const v of [lo, hi]) {
+          const p = [...s];
+          p[i] = v;
+          assert.ok(validSides(p));
         }
       }
-    }
-  });
-}
+});
+test("Only four requested solids remain", () =>
+  assert.deepEqual(
+    SHAPES.map((s) => s.id),
+    ["prism3", "prism4", "pyramid3", "pyramid4"],
+  ));
