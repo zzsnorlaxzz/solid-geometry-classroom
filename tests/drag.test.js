@@ -34,7 +34,7 @@ function overlap(A, B) {
 }
 test("Editor accepts noncyclic convex quadrilaterals, rejects crossed/concave/flat polygons", () => {
   assert.ok(validPolygon(DEFAULT_POLYGONS[4]));
-  const p = canonicalPolygon(DEFAULT_POLYGONS[4]),
+  const p = canonicalPolygon([[-3, -2], [3, -2], [2.4, 2.5], [-2.5, 1.5]]),
     lengths = p.map((v, i) => distance(v, p[(i + 1) % 4])),
     cyclic = basePolygon(lengths);
   assert.ok(distance(p[3], cyclic[3]) > 0.1);

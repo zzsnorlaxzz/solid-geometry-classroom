@@ -49,7 +49,7 @@ const cases = {
     [3, 4, 5, 6],
   ],
 };
-for (const shape of SHAPES)
+for (const shape of SHAPES.filter((s) => s.n))
   test(`${shape.name}: independent sides, rigid hinges, no overlaps`, () => {
     for (const s of cases[shape.n])
       for (const h of [2, 6, 15]) {
@@ -115,8 +115,8 @@ test("Invalid polygons rejected; slider bounds retain valid polygons", () => {
         }
       }
 });
-test("Only four requested solids remain", () =>
+test("All six classroom solids are available", () =>
   assert.deepEqual(
     SHAPES.map((s) => s.id),
-    ["prism3", "prism4", "pyramid3", "pyramid4"],
+    ["prism3", "prism4", "pyramid3", "pyramid4", "cylinder", "cone"],
   ));

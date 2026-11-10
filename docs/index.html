@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>입체도형 연구실 · 겉넓이 수업</title><style>* {
+<!doctype html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:," /><title>입체도형 연구실 · 겉넓이 수업</title><style>* {
   box-sizing: border-box;
 }
 :root {
@@ -368,6 +368,13 @@ canvas {
   #board {
     height: 80dvh;
   }
+}
+
+[hidden] {
+  display: none !important;
+}
+#radius-control {
+  color: #60768a;
 }
 </style></head><body><div id="app"></div><script type="module">(function () {
 	'use strict';
@@ -45923,6 +45930,8 @@ void main() {
 	  { id: "prism4", kind: "prism", n: 4, name: "사각기둥" },
 	  { id: "pyramid3", kind: "pyramid", n: 3, name: "삼각뿔" },
 	  { id: "pyramid4", kind: "pyramid", n: 4, name: "사각뿔" },
+	  { id: "cylinder", kind: "cylinder", name: "원기둥" },
+	  { id: "cone", kind: "cone", name: "원뿔" },
 	];
 	function validSides(s) {
 	  return (
@@ -45972,17 +45981,18 @@ void main() {
 	const face = (id, base, vertices) => ({ id, base, vertices });
 	const DEFAULT_POLYGONS = {
 	  3: [
-	    [-3, -2],
-	    [3, -2],
-	    [-1, 2.5],
+	    [-3, -Math.sqrt(3)],
+	    [3, -Math.sqrt(3)],
+	    [0, 2 * Math.sqrt(3)],
 	  ],
 	  4: [
-	    [-3, -2],
-	    [3, -2],
-	    [2.4, 2.5],
-	    [-2.5, 1.5],
+	    [-3, -3],
+	    [3, -3],
+	    [3, 3],
+	    [-3, 3],
 	  ],
 	};
+	const isRound = (shape) => ["cylinder", "cone"].includes(shape.kind);
 	function validPolygon(p) {
 	  if (
 	    ![3, 4].includes(p.length) ||
@@ -46076,6 +46086,15 @@ void main() {
 	// Solid view keeps the editor's axes and point identities. Only the net uses
 	// an AB-aligned coordinate frame for its hinge construction.
 	function solidGeometry(shape, polygon, h) {
+	  if (isRound(shape)) {
+	    const faces = geometry(shape, polygon, h, 0);
+	    return shape.kind === "cone"
+	      ? faces
+	      : faces.map((f) => ({
+	          ...f,
+	          vertices: f.vertices.map(([x, y, z]) => [x, z, y]),
+	        }));
+	  }
 	  const faces = geometry(shape, polygon, h, 0),
 	    a = polygon[0],
 	    b = polygon[1],
@@ -46121,6 +46140,7 @@ void main() {
 	  return moved;
 	}
 	function triangulate(f) {
+	  if (f.indices) return f.indices;
 	  return Array.from({ length: f.vertices.length - 2 }, (_, i) => [
 	    0,
 	    i + 1,
@@ -46128,6 +46148,7 @@ void main() {
 	  ]).flat();
 	}
 	function geometry(shape, s, h, t = 0) {
+	  if (isRound(shape)) return roundGeometry(shape, s, h, t);
 	  if (!Number.isFinite(h) || h < 2 || h > 15 || s.length !== shape.n)
 	    throw new RangeError("잘못된 치수");
 	  const p = Array.isArray(s[0]) ? canonicalPolygon(s) : basePolygon(s),
@@ -46218,7 +46239,124 @@ void main() {
 	  return faces;
 	}
 
-	const layout = `<section id="left"><header><div class="eyebrow">GEOMETRY CLASSROOM</div><h1>입체도형 연구실</h1></header><div id="solid-wrap"><canvas id="solid-canvas" aria-label="회전 가능한 입체도형"></canvas><div id="vertex-labels" aria-hidden="true"></div><div class="height-control"><label for="height">높이</label><input id="height" type="range" min="2" max="15" step=".1" value="6" aria-label="높이" aria-orientation="vertical"></div><div class="view-tools"><button id="zoom-in" aria-label="확대">＋</button><button id="zoom-out" aria-label="축소">−</button><button id="reset-view">시점 복귀</button></div></div><div id="controls"><div class="section-title"><span>입체도형 설정</span><button id="collapse" aria-expanded="true">접기</button></div><div id="settings"><div class="control-grid"><label>입체도형<select id="shape"><option value="prism">각기둥</option><option value="pyramid">각뿔</option></select></label><label>밑면 모양<select id="base-shape"><option value="3">삼각형</option><option value="4">사각형</option></select></label></div><div class="editor-heading"><span>밑면 모양 만들기</span><button id="reset-base">모양 초기화</button></div><svg id="base-editor" viewBox="0 0 320 180" role="group" aria-label="꼭짓점을 드래그하는 밑면 편집 영역"></svg><p class="note">점을 끌어 밑면을 바꾸세요. 가까이 놓으면 수평·수직에 맞춰집니다.</p><p id="error" role="status"></p></div><div class="unfold"><label for="progress">펼쳐서 살펴보기</label><input id="progress" aria-label="전개 진행률" type="range" min="0" max="1" step=".001" value="1"></div></div></section><section id="board" aria-label="전개도"><canvas id="net-canvas" aria-label="면을 선택할 수 있는 전개도"></canvas></section>`;
+	// Sample developable surfaces by arc length. All strips belong to a single
+	// selectable lateral face; the samples are never drawn as polygon edges.
+	function roundGeometry(shape, r, h, t = 0) {
+	  if (
+	    !Number.isFinite(r) ||
+	    r < 1 ||
+	    r > 4 ||
+	    !Number.isFinite(h) ||
+	    h < 2 ||
+	    h > 15 ||
+	    !Number.isFinite(t)
+	  )
+	    throw new RangeError("잘못된 치수");
+	  t = Math.max(0, Math.min(1, t));
+	  const segments = 128,
+	    faces = [];
+	  if (shape.kind === "cylinder") {
+	    const vertices = [],
+	      indices = [],
+	      bend = 1 - t;
+	    for (let i = 0; i <= segments; i++) {
+	      const u = (i / segments - 0.5) * 2 * Math.PI * r,
+	        angle = (bend * u) / r,
+	        x = bend < 1e-8 ? u : (r * Math.sin(angle)) / bend,
+	        z = bend < 1e-8 ? 0 : (2 * r * Math.sin(angle / 2) ** 2) / bend;
+	      vertices.push([x, 0, z], [x, h, z]);
+	      if (i < segments) {
+	        const j = i * 2;
+	        indices.push(j, j + 2, j + 1, j + 1, j + 2, j + 3);
+	      }
+	    }
+	    const outline = [
+	      ...Array.from({ length: segments + 1 }, (_, i) => 2 * i),
+	      ...Array.from({ length: segments + 1 }, (_, i) => 2 * (segments - i) + 1),
+	    ];
+	    faces.push({ ...face("side0", false, vertices), indices, outline });
+	    for (let j = 0; j < 2; j++) {
+	      const cap = [];
+	      for (let i = 0; i < segments; i++) {
+	        const angle = (2 * Math.PI * i) / segments,
+	          d = r * (1 - Math.cos(angle)),
+	          beta = (t * Math.PI) / 2;
+	        cap.push([
+	          r * Math.sin(angle),
+	          j * h + (j ? 1 : -1) * d * Math.sin(beta),
+	          d * Math.cos(beta),
+	        ]);
+	      }
+	      faces.push(face("base" + j, true, cap));
+	    }
+	  } else {
+	    const slant = Math.hypot(r, h),
+	      ratio = r / slant + (1 - r / slant) * t,
+	      radius = slant * ratio,
+	      height = slant * Math.sqrt(Math.max(0, 1 - ratio * ratio)),
+	      vertices = [[0, -radius, height]];
+	    for (let i = 0; i <= segments; i++) {
+	      const angle = ((i / segments - 0.5) * 2 * Math.PI * r) / radius;
+	      vertices.push([
+	        radius * Math.sin(angle),
+	        radius * (Math.cos(angle) - 1),
+	        0,
+	      ]);
+	    }
+	    faces.push(face("side0", false, vertices));
+	    const cap = [];
+	    for (let i = 0; i < segments; i++) {
+	      const angle = (2 * Math.PI * i) / segments,
+	        d = r * (1 - Math.cos(angle));
+	      cap.push([
+	        r * Math.sin(angle),
+	        -d * Math.cos(t * Math.PI),
+	        -d * Math.sin(t * Math.PI),
+	      ]);
+	    }
+	    faces.push(face("base0", true, cap));
+	  }
+	  return faces;
+	}
+
+	// Start in the editor/solid coordinate frame, then lay the net in the XY plane.
+	function netGeometry(shape, dimensions, height, progress) {
+	  const data = geometry(shape, dimensions, height, progress),
+	    upright = shape.kind === "prism" || shape.kind === "cylinder",
+	    origin = isRound(shape) ? [0, 0] : dimensions[0],
+	    angle = isRound(shape)
+	      ? 0
+	      : Math.atan2(dimensions[1][1] - origin[1], dimensions[1][0] - origin[0]),
+	    rotation = new Quaternion().setFromAxisAngle(
+	      new Vector3(0, 0, 1),
+	      angle,
+	    );
+	  if (upright)
+	    rotation.multiply(
+	      new Quaternion().setFromAxisAngle(
+	        new Vector3(1, 0, 0),
+	        Math.PI / 2,
+	      ),
+	    );
+	  rotation.slerp(new Quaternion(), progress);
+	  const offset = new Vector3(...origin, 0).multiplyScalar(1 - progress);
+	  return data.map((f) => ({
+	    ...f,
+	    vertices: f.vertices.map(([x, y, z]) =>
+	      new Vector3(x, y, upright ? -z : z)
+	        .applyQuaternion(rotation)
+	        .add(offset)
+	        .toArray(),
+	    ),
+	  }));
+	}
+
+	function netOrientation(solidOrientation, progress) {
+	  // Smoothly settle into a fixed front view at exactly full expansion.
+	  return solidOrientation.clone().slerp(new Quaternion(), progress ** 4);
+	}
+
+	const layout = `<section id="left"><header><div class="eyebrow">GEOMETRY CLASSROOM</div><h1>입체도형 연구실</h1></header><div id="solid-wrap"><canvas id="solid-canvas" aria-label="회전 가능한 입체도형"></canvas><div id="vertex-labels" aria-hidden="true"></div><div class="height-control"><label for="height">높이</label><input id="height" type="range" min="2" max="15" step=".1" value="6" aria-label="높이" aria-orientation="vertical"></div><div class="view-tools"><button id="zoom-in" aria-label="확대">＋</button><button id="zoom-out" aria-label="축소">−</button><button id="reset-view">시점 복귀</button></div></div><div id="controls"><div class="section-title"><span>입체도형 설정</span><button id="collapse" aria-expanded="true">접기</button></div><div id="settings"><div class="control-grid"><label>입체도형<select id="shape"><option value="prism">각기둥</option><option value="pyramid">각뿔</option><option value="cylinder">원기둥</option><option value="cone">원뿔</option></select></label><label>밑면 모양<select id="base-shape"><option value="3">삼각형</option><option value="4">사각형</option><option value="circle" hidden>원</option></select></label></div><div id="polygon-settings"><div class="editor-heading"><span>밑면 모양 만들기</span><button id="reset-base">모양 초기화</button></div><svg id="base-editor" viewBox="0 0 320 180" role="group" aria-label="꼭짓점을 드래그하는 밑면 편집 영역"></svg><p class="note">점을 끌어 밑면을 바꾸세요. 가까이 놓으면 수평·수직에 맞춰집니다.</p></div><label id="radius-control" class="field" hidden>밑면 반지름<input id="radius" aria-label="밑면 반지름" type="range" min="1" max="4" step=".1" value="3"></label><p id="error" role="status"></p></div><div class="unfold"><label for="progress">펼쳐서 살펴보기</label><input id="progress" aria-label="전개 진행률" type="range" min="0" max="1" step=".001" value="1"></div></div></section><section id="board" aria-label="전개도"><canvas id="net-canvas" aria-label="입체도형과 회전이 연동되는 전개도"></canvas></section>`;
 
 	const colors$1 = ["#3478bd", "#bc7146", "#628b58", "#8b67ad"];
 	function mountEditor(svg, getPolygon, onChange) {
@@ -46329,11 +46467,14 @@ void main() {
 	let n = 3,
 	  kind = "prism",
 	  h = 6,
+	  radius = 3,
 	  t = 1,
 	  selected = null;
 	const dimensions = structuredClone(DEFAULT_POLYGONS),
-	  shape = () => SHAPES.find((s) => s.kind === kind && s.n === n),
-	  sides = () => dimensions[n];
+	  shape = () =>
+	    SHAPES.find((s) => s.kind === kind && (isRound(s) || s.n === n)),
+	  sides = () => dimensions[n],
+	  size = () => (isRound(shape()) ? radius : sides());
 	$("app").innerHTML = layout;
 	function view(canvas, flat) {
 	  const renderer = new WebGLRenderer({
@@ -46363,6 +46504,7 @@ void main() {
 	}
 	let orbit = new OrbitControls(solid.camera, $("solid-canvas")),
 	  netBox,
+	  currentNetBox,
 	  solidHalfHeight = 10;
 	const box = (data) =>
 	  new Box3().setFromPoints(
@@ -46401,7 +46543,9 @@ void main() {
 	      );
 	    mesh.userData.face = f.id;
 	    view.group.add(mesh);
-	    const pts = f.vertices.map((p) => new Vector3(...p));
+	    const pts = (f.outline || f.vertices.map((_, i) => i)).map(
+	      (i) => new Vector3(...f.vertices[i]),
+	    );
 	    pts.push(pts[0].clone());
 	    view.group.add(
 	      new Line(
@@ -46412,7 +46556,7 @@ void main() {
 	  }
 	}
 	function solidData() {
-	  return solidGeometry(shape(), sides(), h);
+	  return solidGeometry(shape(), size(), h);
 	}
 	function setSolidFrustum() {
 	  const aspect = $("solid-canvas").clientWidth / $("solid-canvas").clientHeight;
@@ -46427,7 +46571,11 @@ void main() {
 	    center = box(data).getCenter(new Vector3()),
 	    direction = preserveDirection
 	      ? solid.camera.position.clone().sub(orbit.target).normalize()
-	      : new Vector3(0, -0.95, 1.65).normalize();
+	      : new Vector3(
+	          0,
+	          kind === "cone" ? -1.65 : -0.95,
+	          kind === "cone" ? 0.95 : 1.65,
+	        ).normalize();
 	  orbit.target.copy(center);
 	  solid.camera.position.copy(center).addScaledVector(direction, 100);
 	  solid.camera.zoom = 1;
@@ -46459,27 +46607,44 @@ void main() {
 	  fitSolid();
 	}
 	function netCamera() {
-	  if (!netBox) return;
+	  if (!netBox || !currentNetBox) return;
 	  const w = $("board").clientWidth,
-	    hv = $("board").clientHeight,
-	    size = netBox.getSize(new Vector3()),
-	    scale = Math.max(size.x / (w * 0.8), size.y / (hv * 0.8), 0.015);
-	  net.camera.left = (-w * scale) / 2;
-	  net.camera.right = (w * scale) / 2;
-	  net.camera.top = (hv * scale) / 2;
-	  net.camera.bottom = (-hv * scale) / 2;
-	  const folded = box(geometry(shape(), sides(), h, 0)).getCenter(
-	      new Vector3(),
-	    ),
-	    center = folded.lerp(netBox.getCenter(new Vector3()), t);
+	    hv = $("board").clientHeight;
+	  if (!w || !hv) return;
+	  const aspect = w / hv,
+	    flatSize = netBox.getSize(new Vector3()),
+	    radius = currentNetBox.getSize(new Vector3()).length() / 2,
+	    blend = t ** 4,
+	    halfHeight =
+	      (((1 - blend) * radius) / Math.min(1, aspect) +
+	        blend * Math.max(flatSize.x / (2 * aspect), flatSize.y / 2)) *
+	      1.2,
+	    center = currentNetBox.getCenter(new Vector3()),
+	    orientation = netOrientation(solid.camera.quaternion, t);
+	  net.camera.left = -halfHeight * aspect;
+	  net.camera.right = halfHeight * aspect;
+	  net.camera.top = halfHeight;
+	  net.camera.bottom = -halfHeight;
+	  net.camera.quaternion.copy(orientation);
 	  net.camera.position
 	    .copy(center)
-	    .add(new Vector3(0, -30 * (1 - t), 100));
-	  net.camera.lookAt(center);
+	    .add(new Vector3(0, 0, 100).applyQuaternion(orientation));
+	  net.camera.zoom = 1 + (solid.camera.zoom - 1) * (1 - blend);
 	  net.camera.updateProjectionMatrix();
+	  net.camera.updateMatrixWorld();
+	}
+	function drawNet() {
+	  const data = netGeometry(shape(), size(), h, t);
+	  draw(net, data);
+	  currentNetBox = box(data);
 	}
 	let vertexLabels = [];
 	function labels() {
+	  if (isRound(shape())) {
+	    $("vertex-labels").innerHTML = "";
+	    vertexLabels = [];
+	    return;
+	  }
 	  const base = solidData().find(
 	    (f) => f.id === (kind === "prism" ? "base1" : "base0"),
 	  );
@@ -46497,13 +46662,14 @@ void main() {
 	}
 	function rebuild(reset = false) {
 	  draw(solid, solidData());
-	  draw(net, geometry(shape(), sides(), h, t));
-	  netBox = box(geometry(shape(), sides(), h, 1));
+	  drawNet();
+	  netBox = box(netGeometry(shape(), size(), h, 1));
 	  if (reset) resetView();
 	  netCamera();
 	  labels();
 	  $("app").dataset.shape = shape().id;
 	  $("app").dataset.vertices = JSON.stringify(sides());
+	  $("app").dataset.radius = radius;
 	  $("app").dataset.height = h;
 	  $("height").value = h;
 	  $("app").dataset.progress = t;
@@ -46518,10 +46684,18 @@ void main() {
 	$("shape").onchange = () => {
 	  kind = $("shape").value;
 	  selected = null;
+	  const rounded = isRound(shape());
+	  $("polygon-settings").hidden = rounded;
+	  $("radius-control").hidden = !rounded;
+	  $("base-shape").disabled = rounded;
+	  $("base-shape").querySelector('[value="circle"]').hidden = !rounded;
+	  $("base-shape").value = rounded ? "circle" : String(n);
+	  editor.render();
 	  rebuild(true);
 	};
 	$("base-shape").onchange = () => {
 	  n = Number($("base-shape").value);
+	  dimensions[n] = structuredClone(DEFAULT_POLYGONS[n]);
 	  selected = null;
 	  editor.render();
 	  rebuild(true);
@@ -46548,9 +46722,14 @@ void main() {
 	  rebuild();
 	  ensureVisible();
 	};
+	$("radius").oninput = () => {
+	  radius = Number($("radius").value);
+	  rebuild();
+	  ensureVisible();
+	};
 	$("progress").oninput = () => {
 	  t = Number($("progress").value);
-	  draw(net, geometry(shape(), sides(), h, t));
+	  drawNet();
 	  netCamera();
 	  $("app").dataset.progress = t;
 	};
@@ -46610,6 +46789,7 @@ void main() {
 	new ResizeObserver(resize).observe($("board"));
 	function animate() {
 	  orbit.update();
+	  netCamera();
 	  for (const { el, p } of vertexLabels) {
 	    const q = p.clone().project(solid.camera);
 	    el.style.left = (q.x + 1) * 0.5 * $("solid-canvas").clientWidth + "px";
