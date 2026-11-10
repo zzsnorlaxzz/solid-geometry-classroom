@@ -304,6 +304,8 @@ canvas {
   height: 36px;
 }
 #board {
+  display: flex;
+  flex-direction: column;
   background: white;
   position: relative;
   min-width: 0;
@@ -366,6 +368,8 @@ canvas {
     height: 32vh;
   }
   #board {
+    display: flex;
+    flex-direction: column;
     height: 80dvh;
   }
 }
@@ -375,6 +379,81 @@ canvas {
 }
 #radius-control {
   color: #60768a;
+}
+
+.ink-panel {
+  padding: 12px 14px 9px;
+  border-bottom: 1px solid #e0e7ed;
+  flex-shrink: 0;
+}
+#ink-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+#ink-tools button,
+#ink-tools select {
+  font-size: 12px;
+  min-height: 34px;
+}
+#ink-tools label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #60768a;
+}
+#ink-tools select {
+  width: auto;
+}
+#ink-color {
+  width: 30px;
+  height: 30px;
+  padding: 1px;
+  border: 1px solid #d4dfe8;
+  border-radius: 5px;
+  background: white;
+}
+#ink-tools [aria-pressed="true"] {
+  background: #e1edf9;
+  border-color: #7399be;
+}
+#ink-tools:disabled {
+  opacity: 0.5;
+}
+#ink-tools button:disabled {
+  cursor: default;
+}
+#ink-status,
+.ink-note {
+  margin: 7px 0 0;
+  font-size: 11px;
+  color: #60768a;
+  line-height: 1.4;
+}
+.ink-note {
+  font-size: 10px;
+  color: #788a9b;
+}
+#net-viewport {
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+}
+#ink-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+#ink-canvas.drawing {
+  pointer-events: auto;
+  cursor: crosshair;
 }
 </style></head><body><div id="app"></div><script type="module">(function () {
 	'use strict';
@@ -46356,7 +46435,155 @@ void main() {
 	  return solidOrientation.clone().slerp(new Quaternion(), progress ** 4);
 	}
 
-	const layout = `<section id="left"><header><div class="eyebrow">GEOMETRY CLASSROOM</div><h1>입체도형 연구실</h1></header><div id="solid-wrap"><canvas id="solid-canvas" aria-label="회전 가능한 입체도형"></canvas><div id="vertex-labels" aria-hidden="true"></div><div class="height-control"><label for="height">높이</label><input id="height" type="range" min="2" max="15" step=".1" value="6" aria-label="높이" aria-orientation="vertical"></div><div class="view-tools"><button id="zoom-in" aria-label="확대">＋</button><button id="zoom-out" aria-label="축소">−</button><button id="reset-view">시점 복귀</button></div></div><div id="controls"><div class="section-title"><span>입체도형 설정</span><button id="collapse" aria-expanded="true">접기</button></div><div id="settings"><div class="control-grid"><label>입체도형<select id="shape"><option value="prism">각기둥</option><option value="pyramid">각뿔</option><option value="cylinder">원기둥</option><option value="cone">원뿔</option></select></label><label>밑면 모양<select id="base-shape"><option value="3">삼각형</option><option value="4">사각형</option><option value="circle" hidden>원</option></select></label></div><div id="polygon-settings"><div class="editor-heading"><span>밑면 모양 만들기</span><button id="reset-base">모양 초기화</button></div><svg id="base-editor" viewBox="0 0 320 180" role="group" aria-label="꼭짓점을 드래그하는 밑면 편집 영역"></svg><p class="note">점을 끌어 밑면을 바꾸세요. 가까이 놓으면 수평·수직에 맞춰집니다.</p></div><label id="radius-control" class="field" hidden>밑면 반지름<input id="radius" aria-label="밑면 반지름" type="range" min="1" max="4" step=".1" value="3"></label><p id="error" role="status"></p></div><div class="unfold"><label for="progress">펼쳐서 살펴보기</label><input id="progress" aria-label="전개 진행률" type="range" min="0" max="1" step=".001" value="1"></div></div></section><section id="board" aria-label="전개도"><canvas id="net-canvas" aria-label="입체도형과 회전이 연동되는 전개도"></canvas></section>`;
+	// Store ink in net-plane coordinates so it follows the diagram on resize.
+	function mountAnnotations({
+	  canvas,
+	  tools,
+	  project,
+	  unproject,
+	  worldPerPixel,
+	}) {
+	  const context = canvas.getContext("2d"),
+	    status = document.getElementById("ink-status"),
+	    undo = document.getElementById("ink-undo"),
+	    clearButton = document.getElementById("ink-clear"),
+	    color = document.getElementById("ink-color"),
+	    width = document.getElementById("ink-width");
+	  let enabled = false,
+	    mode = "pen",
+	    operations = [],
+	    pointer = null;
+
+	  function render() {
+	    const w = canvas.clientWidth,
+	      h = canvas.clientHeight;
+	    if (!w || !h) return;
+	    const ratio = Math.min(devicePixelRatio || 1, 2);
+	    if (
+	      canvas.width !== Math.round(w * ratio) ||
+	      canvas.height !== Math.round(h * ratio)
+	    ) {
+	      canvas.width = Math.round(w * ratio);
+	      canvas.height = Math.round(h * ratio);
+	    }
+	    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+	    context.clearRect(0, 0, w, h);
+	    for (const operation of operations) {
+	      const points = operation.points.map(project),
+	        lineWidth = operation.width / worldPerPixel();
+	      context.globalCompositeOperation =
+	        operation.mode === "eraser" ? "destination-out" : "source-over";
+	      context.strokeStyle = context.fillStyle = operation.color;
+	      context.lineWidth = lineWidth;
+	      context.lineCap = context.lineJoin = "round";
+	      context.beginPath();
+	      if (points.length === 1) {
+	        context.arc(points[0][0], points[0][1], lineWidth / 2, 0, Math.PI * 2);
+	        context.fill();
+	      } else {
+	        context.moveTo(...points[0]);
+	        for (const point of points.slice(1)) context.lineTo(...point);
+	        context.stroke();
+	      }
+	    }
+	    context.globalCompositeOperation = "source-over";
+	  }
+	  function update() {
+	    tools.disabled = !enabled;
+	    canvas.hidden = !enabled;
+	    canvas.classList.toggle("drawing", enabled && mode !== "select");
+	    canvas.dataset.mode = mode;
+	    canvas.dataset.operations = operations.length;
+	    for (const button of tools.querySelectorAll("[data-ink-mode]"))
+	      button.setAttribute(
+	        "aria-pressed",
+	        String(button.dataset.inkMode === mode),
+	      );
+	    undo.disabled = clearButton.disabled = !enabled || operations.length === 0;
+	    status.textContent = !enabled
+	      ? "완전히 펼치면 필기할 수 있어요."
+	      : mode === "select"
+	        ? "전개도에서 면을 선택하세요."
+	        : mode === "eraser"
+	          ? "지울 부분을 문질러 주세요."
+	          : "전개도 위에 자유롭게 필기하세요.";
+	  }
+	  function finish() {
+	    if (pointer !== null && canvas.hasPointerCapture(pointer))
+	      canvas.releasePointerCapture(pointer);
+	    pointer = null;
+	  }
+	  function point(event) {
+	    const rect = canvas.getBoundingClientRect();
+	    return unproject([event.clientX - rect.left, event.clientY - rect.top]);
+	  }
+	  canvas.addEventListener("pointerdown", (event) => {
+	    if (
+	      !enabled ||
+	      mode === "select" ||
+	      pointer !== null ||
+	      !event.isPrimary ||
+	      event.button !== 0
+	    )
+	      return;
+	    event.preventDefault();
+	    pointer = event.pointerId;
+	    canvas.setPointerCapture(pointer);
+	    operations.push({
+	      mode,
+	      color: color.value,
+	      width: (mode === "eraser" ? 24 : Number(width.value)) * worldPerPixel(),
+	      points: [point(event)],
+	    });
+	    update();
+	    render();
+	  });
+	  canvas.addEventListener("pointermove", (event) => {
+	    if (!enabled || pointer !== event.pointerId) return;
+	    event.preventDefault();
+	    const events = event.getCoalescedEvents?.() || [];
+	    operations
+	      .at(-1)
+	      .points.push(...(events.length ? events : [event]).map(point));
+	    render();
+	  });
+	  for (const name of ["pointerup", "pointercancel", "lostpointercapture"])
+	    canvas.addEventListener(name, (event) => {
+	      if (event.pointerId === pointer) finish();
+	    });
+	  for (const button of tools.querySelectorAll("[data-ink-mode]"))
+	    button.onclick = () => {
+	      finish();
+	      mode = button.dataset.inkMode;
+	      update();
+	    };
+	  undo.onclick = () => {
+	    finish();
+	    operations.pop();
+	    update();
+	    render();
+	  };
+	  function clear() {
+	    finish();
+	    operations = [];
+	    update();
+	    render();
+	  }
+	  clearButton.onclick = clear;
+	  update();
+	  return {
+	    clear,
+	    render,
+	    setEnabled(value) {
+	      if (!value) finish();
+	      enabled = value;
+	      update();
+	      render();
+	    },
+	  };
+	}
+
+	const layout = `<section id="left"><header><div class="eyebrow">GEOMETRY CLASSROOM</div><h1>입체도형 연구실</h1></header><div id="solid-wrap"><canvas id="solid-canvas" aria-label="회전 가능한 입체도형"></canvas><div id="vertex-labels" aria-hidden="true"></div><div class="height-control"><label for="height">높이</label><input id="height" type="range" min="2" max="15" step=".1" value="6" aria-label="높이" aria-orientation="vertical"></div><div class="view-tools"><button id="zoom-in" aria-label="확대">＋</button><button id="zoom-out" aria-label="축소">−</button><button id="reset-view">시점 복귀</button></div></div><div id="controls"><div class="section-title"><span>입체도형 설정</span><button id="collapse" aria-expanded="true">접기</button></div><div id="settings"><div class="control-grid"><label>입체도형<select id="shape"><option value="prism">각기둥</option><option value="pyramid">각뿔</option><option value="cylinder">원기둥</option><option value="cone">원뿔</option></select></label><label>밑면 모양<select id="base-shape"><option value="3">삼각형</option><option value="4">사각형</option><option value="circle" hidden>원</option></select></label></div><div id="polygon-settings"><div class="editor-heading"><span>밑면 모양 만들기</span><button id="reset-base">모양 초기화</button></div><svg id="base-editor" viewBox="0 0 320 180" role="group" aria-label="꼭짓점을 드래그하는 밑면 편집 영역"></svg><p class="note">점을 끌어 밑면을 바꾸세요. 가까이 놓으면 수평·수직에 맞춰집니다.</p></div><label id="radius-control" class="field" hidden>밑면 반지름<input id="radius" aria-label="밑면 반지름" type="range" min="1" max="4" step=".1" value="3"></label><p id="error" role="status"></p></div><div class="unfold"><label for="progress">펼쳐서 살펴보기</label><input id="progress" aria-label="전개 진행률" type="range" min="0" max="1" step=".001" value="0"></div></div></section><section id="board" aria-label="전개도"><div class="ink-panel"><fieldset id="ink-tools" aria-label="전개도 필기 도구" disabled><button type="button" data-ink-mode="pen" aria-pressed="true">펜</button><button type="button" data-ink-mode="eraser" aria-pressed="false">지우개</button><button type="button" data-ink-mode="select" aria-pressed="false">면 선택</button><label>색<input id="ink-color" type="color" value="#244b87" aria-label="펜 색상"></label><label>굵기<select id="ink-width" aria-label="펜 굵기"><option value="2">얇게</option><option value="4" selected>보통</option><option value="7">굵게</option></select></label><button type="button" id="ink-undo">되돌리기</button><button type="button" id="ink-clear">모두 지우기</button></fieldset><p id="ink-status" role="status">완전히 펼치면 필기할 수 있어요.</p><p class="ink-note">도형·밑면·크기를 바꾸면 필기가 초기화됩니다.</p></div><div id="net-viewport"><canvas id="net-canvas" aria-label="입체도형과 회전이 연동되는 전개도"></canvas><canvas id="ink-canvas" aria-label="전개도 필기 영역" hidden></canvas></div></section>`;
 
 	const colors$1 = ["#3478bd", "#bc7146", "#628b58", "#8b67ad"];
 	function mountEditor(svg, getPolygon, onChange) {
@@ -46468,7 +46695,7 @@ void main() {
 	  kind = "prism",
 	  h = 6,
 	  radius = 3,
-	  t = 1,
+	  t = 0,
 	  selected = null;
 	const dimensions = structuredClone(DEFAULT_POLYGONS),
 	  shape = () =>
@@ -46608,8 +46835,8 @@ void main() {
 	}
 	function netCamera() {
 	  if (!netBox || !currentNetBox) return;
-	  const w = $("board").clientWidth,
-	    hv = $("board").clientHeight;
+	  const w = $("net-viewport").clientWidth,
+	    hv = $("net-viewport").clientHeight;
 	  if (!w || !hv) return;
 	  const aspect = w / hv,
 	    flatSize = netBox.getSize(new Vector3()),
@@ -46637,6 +46864,34 @@ void main() {
 	  const data = netGeometry(shape(), size(), h, t);
 	  draw(net, data);
 	  currentNetBox = box(data);
+	}
+	const ink = mountAnnotations({
+	  canvas: $("ink-canvas"),
+	  tools: $("ink-tools"),
+	  project: ([x, y]) => {
+	    const p = new Vector3(x, y, 0).project(net.camera);
+	    return [
+	      ((p.x + 1) * $("net-viewport").clientWidth) / 2,
+	      ((1 - p.y) * $("net-viewport").clientHeight) / 2,
+	    ];
+	  },
+	  unproject: ([x, y]) => {
+	    const p = new Vector3(
+	      (x / $("net-viewport").clientWidth) * 2 - 1,
+	      1 - (y / $("net-viewport").clientHeight) * 2,
+	      0,
+	    ).unproject(net.camera);
+	    return [p.x, p.y];
+	  },
+	  worldPerPixel: () =>
+	    (net.camera.right - net.camera.left) /
+	    net.camera.zoom /
+	    $("net-viewport").clientWidth,
+	});
+	function startFolded() {
+	  t = 0;
+	  $("progress").value = 0;
+	  ink.clear();
 	}
 	let vertexLabels = [];
 	function labels() {
@@ -46666,6 +46921,7 @@ void main() {
 	  netBox = box(netGeometry(shape(), size(), h, 1));
 	  if (reset) resetView();
 	  netCamera();
+	  ink.setEnabled(t === 1);
 	  labels();
 	  $("app").dataset.shape = shape().id;
 	  $("app").dataset.vertices = JSON.stringify(sides());
@@ -46676,12 +46932,14 @@ void main() {
 	  $("app").dataset.selected = selected || "";
 	}
 	const editor = mountEditor($("base-editor"), sides, (polygon) => {
+	  ink.clear();
 	  dimensions[n] = polygon;
 	  selected = null;
 	  rebuild();
 	  ensureVisible();
 	});
 	$("shape").onchange = () => {
+	  startFolded();
 	  kind = $("shape").value;
 	  selected = null;
 	  const rounded = isRound(shape());
@@ -46694,6 +46952,7 @@ void main() {
 	  rebuild(true);
 	};
 	$("base-shape").onchange = () => {
+	  startFolded();
 	  n = Number($("base-shape").value);
 	  dimensions[n] = structuredClone(DEFAULT_POLYGONS[n]);
 	  selected = null;
@@ -46701,6 +46960,7 @@ void main() {
 	  rebuild(true);
 	};
 	$("reset-base").onclick = () => {
+	  startFolded();
 	  dimensions[n] = structuredClone(DEFAULT_POLYGONS[n]);
 	  selected = null;
 	  editor.render();
@@ -46718,11 +46978,13 @@ void main() {
 	    fitSolid(true);
 	}
 	$("height").oninput = () => {
+	  ink.clear();
 	  h = Number($("height").value);
 	  rebuild();
 	  ensureVisible();
 	};
 	$("radius").oninput = () => {
+	  ink.clear();
 	  radius = Number($("radius").value);
 	  rebuild();
 	  ensureVisible();
@@ -46732,6 +46994,7 @@ void main() {
 	  drawNet();
 	  netCamera();
 	  $("app").dataset.progress = t;
+	  ink.setEnabled(t === 1);
 	};
 	$("reset-view").onclick = resetView;
 	for (const [id, factor] of [
@@ -46780,13 +47043,18 @@ void main() {
 	  solid.renderer.setSize(r.width - 52, r.height, false);
 	  setSolidFrustum();
 	  ensureVisible();
-	  net.renderer.setSize($("board").clientWidth, $("board").clientHeight, false);
+	  net.renderer.setSize(
+	    $("net-viewport").clientWidth,
+	    $("net-viewport").clientHeight,
+	    false,
+	  );
 	  netCamera();
+	  ink.render();
 	}
 	rebuild(true);
 	resize();
 	new ResizeObserver(resize).observe($("solid-wrap"));
-	new ResizeObserver(resize).observe($("board"));
+	new ResizeObserver(resize).observe($("net-viewport"));
 	function animate() {
 	  orbit.update();
 	  netCamera();

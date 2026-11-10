@@ -8,6 +8,7 @@ import {
   isRound,
 } from "./geometry.js";
 import { netGeometry, netOrientation } from "./presentation.js";
+import { mountAnnotations } from "./annotations.js";
 import { layout } from "./ui.js";
 import { mountEditor } from "./editor.js";
 import "./style.css";
@@ -18,7 +19,7 @@ let n = 3,
   kind = "prism",
   h = 6,
   radius = 3,
-  t = 1,
+  t = 0,
   selected = null;
 const dimensions = structuredClone(DEFAULT_POLYGONS),
   shape = () =>
@@ -158,8 +159,8 @@ function resetView() {
 }
 function netCamera() {
   if (!netBox || !currentNetBox) return;
-  const w = $("board").clientWidth,
-    hv = $("board").clientHeight;
+  const w = $("net-viewport").clientWidth,
+    hv = $("net-viewport").clientHeight;
   if (!w || !hv) return;
   const aspect = w / hv,
     flatSize = netBox.getSize(new THREE.Vector3()),
@@ -187,6 +188,34 @@ function drawNet() {
   const data = netGeometry(shape(), size(), h, t);
   draw(net, data);
   currentNetBox = box(data);
+}
+const ink = mountAnnotations({
+  canvas: $("ink-canvas"),
+  tools: $("ink-tools"),
+  project: ([x, y]) => {
+    const p = new THREE.Vector3(x, y, 0).project(net.camera);
+    return [
+      ((p.x + 1) * $("net-viewport").clientWidth) / 2,
+      ((1 - p.y) * $("net-viewport").clientHeight) / 2,
+    ];
+  },
+  unproject: ([x, y]) => {
+    const p = new THREE.Vector3(
+      (x / $("net-viewport").clientWidth) * 2 - 1,
+      1 - (y / $("net-viewport").clientHeight) * 2,
+      0,
+    ).unproject(net.camera);
+    return [p.x, p.y];
+  },
+  worldPerPixel: () =>
+    (net.camera.right - net.camera.left) /
+    net.camera.zoom /
+    $("net-viewport").clientWidth,
+});
+function startFolded() {
+  t = 0;
+  $("progress").value = 0;
+  ink.clear();
 }
 let vertexLabels = [];
 function labels() {
@@ -216,6 +245,7 @@ function rebuild(reset = false) {
   netBox = box(netGeometry(shape(), size(), h, 1));
   if (reset) resetView();
   netCamera();
+  ink.setEnabled(t === 1);
   labels();
   $("app").dataset.shape = shape().id;
   $("app").dataset.vertices = JSON.stringify(sides());
@@ -226,12 +256,14 @@ function rebuild(reset = false) {
   $("app").dataset.selected = selected || "";
 }
 const editor = mountEditor($("base-editor"), sides, (polygon) => {
+  ink.clear();
   dimensions[n] = polygon;
   selected = null;
   rebuild();
   ensureVisible();
 });
 $("shape").onchange = () => {
+  startFolded();
   kind = $("shape").value;
   selected = null;
   const rounded = isRound(shape());
@@ -244,6 +276,7 @@ $("shape").onchange = () => {
   rebuild(true);
 };
 $("base-shape").onchange = () => {
+  startFolded();
   n = Number($("base-shape").value);
   dimensions[n] = structuredClone(DEFAULT_POLYGONS[n]);
   selected = null;
@@ -251,6 +284,7 @@ $("base-shape").onchange = () => {
   rebuild(true);
 };
 $("reset-base").onclick = () => {
+  startFolded();
   dimensions[n] = structuredClone(DEFAULT_POLYGONS[n]);
   selected = null;
   editor.render();
@@ -268,11 +302,13 @@ function ensureVisible() {
     fitSolid(true);
 }
 $("height").oninput = () => {
+  ink.clear();
   h = Number($("height").value);
   rebuild();
   ensureVisible();
 };
 $("radius").oninput = () => {
+  ink.clear();
   radius = Number($("radius").value);
   rebuild();
   ensureVisible();
@@ -282,6 +318,7 @@ $("progress").oninput = () => {
   drawNet();
   netCamera();
   $("app").dataset.progress = t;
+  ink.setEnabled(t === 1);
 };
 $("reset-view").onclick = resetView;
 for (const [id, factor] of [
@@ -330,13 +367,18 @@ function resize() {
   solid.renderer.setSize(r.width - 52, r.height, false);
   setSolidFrustum();
   ensureVisible();
-  net.renderer.setSize($("board").clientWidth, $("board").clientHeight, false);
+  net.renderer.setSize(
+    $("net-viewport").clientWidth,
+    $("net-viewport").clientHeight,
+    false,
+  );
   netCamera();
+  ink.render();
 }
 rebuild(true);
 resize();
 new ResizeObserver(resize).observe($("solid-wrap"));
-new ResizeObserver(resize).observe($("board"));
+new ResizeObserver(resize).observe($("net-viewport"));
 function animate() {
   orbit.update();
   netCamera();

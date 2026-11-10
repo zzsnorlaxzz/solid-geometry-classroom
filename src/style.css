@@ -304,6 +304,8 @@ canvas {
   height: 36px;
 }
 #board {
+  display: flex;
+  flex-direction: column;
   background: white;
   position: relative;
   min-width: 0;
@@ -366,6 +368,8 @@ canvas {
     height: 32vh;
   }
   #board {
+    display: flex;
+    flex-direction: column;
     height: 80dvh;
   }
 }
@@ -375,4 +379,79 @@ canvas {
 }
 #radius-control {
   color: #60768a;
+}
+
+.ink-panel {
+  padding: 12px 14px 9px;
+  border-bottom: 1px solid #e0e7ed;
+  flex-shrink: 0;
+}
+#ink-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+#ink-tools button,
+#ink-tools select {
+  font-size: 12px;
+  min-height: 34px;
+}
+#ink-tools label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #60768a;
+}
+#ink-tools select {
+  width: auto;
+}
+#ink-color {
+  width: 30px;
+  height: 30px;
+  padding: 1px;
+  border: 1px solid #d4dfe8;
+  border-radius: 5px;
+  background: white;
+}
+#ink-tools [aria-pressed="true"] {
+  background: #e1edf9;
+  border-color: #7399be;
+}
+#ink-tools:disabled {
+  opacity: 0.5;
+}
+#ink-tools button:disabled {
+  cursor: default;
+}
+#ink-status,
+.ink-note {
+  margin: 7px 0 0;
+  font-size: 11px;
+  color: #60768a;
+  line-height: 1.4;
+}
+.ink-note {
+  font-size: 10px;
+  color: #788a9b;
+}
+#net-viewport {
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+}
+#ink-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+#ink-canvas.drawing {
+  pointer-events: auto;
+  cursor: crosshair;
 }
