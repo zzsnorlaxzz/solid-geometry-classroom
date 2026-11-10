@@ -3,6 +3,8 @@ export const SHAPES = [
   { id: "prism4", kind: "prism", n: 4, name: "사각기둥" },
   { id: "pyramid3", kind: "pyramid", n: 3, name: "삼각뿔" },
   { id: "pyramid4", kind: "pyramid", n: 4, name: "사각뿔" },
+  { id: "cylinder", kind: "cylinder", name: "원기둥" },
+  { id: "cone", kind: "cone", name: "원뿔" },
 ];
 export function validSides(s) {
   return (
@@ -60,17 +62,18 @@ export function centroid(p) {
 const face = (id, base, vertices) => ({ id, base, vertices });
 export const DEFAULT_POLYGONS = {
   3: [
-    [-3, -2],
-    [3, -2],
-    [-1, 2.5],
+    [-3, -Math.sqrt(3)],
+    [3, -Math.sqrt(3)],
+    [0, 2 * Math.sqrt(3)],
   ],
   4: [
-    [-3, -2],
-    [3, -2],
-    [2.4, 2.5],
-    [-2.5, 1.5],
+    [-3, -3],
+    [3, -3],
+    [3, 3],
+    [-3, 3],
   ],
 };
+export const isRound = (shape) => ["cylinder", "cone"].includes(shape.kind);
 export function validPolygon(p) {
   if (
     ![3, 4].includes(p.length) ||
@@ -164,6 +167,15 @@ export function canonicalPolygon(p) {
 // Solid view keeps the editor's axes and point identities. Only the net uses
 // an AB-aligned coordinate frame for its hinge construction.
 export function solidGeometry(shape, polygon, h) {
+  if (isRound(shape)) {
+    const faces = geometry(shape, polygon, h, 0);
+    return shape.kind === "cone"
+      ? faces
+      : faces.map((f) => ({
+          ...f,
+          vertices: f.vertices.map(([x, y, z]) => [x, z, y]),
+        }));
+  }
   const faces = geometry(shape, polygon, h, 0),
     a = polygon[0],
     b = polygon[1],
@@ -209,6 +221,7 @@ export function snapVertex(p, index, target, threshold = 0.3) {
   return moved;
 }
 export function triangulate(f) {
+  if (f.indices) return f.indices;
   return Array.from({ length: f.vertices.length - 2 }, (_, i) => [
     0,
     i + 1,
@@ -216,6 +229,7 @@ export function triangulate(f) {
   ]).flat();
 }
 export function geometry(shape, s, h, t = 0) {
+  if (isRound(shape)) return roundGeometry(shape, s, h, t);
   if (!Number.isFinite(h) || h < 2 || h > 15 || s.length !== shape.n)
     throw new RangeError("잘못된 치수");
   const p = Array.isArray(s[0]) ? canonicalPolygon(s) : basePolygon(s),
@@ -320,4 +334,84 @@ export function area(f) {
       ) / 2;
   }
   return sum;
+}
+
+// Sample developable surfaces by arc length. All strips belong to a single
+// selectable lateral face; the samples are never drawn as polygon edges.
+export function roundGeometry(shape, r, h, t = 0) {
+  if (
+    !Number.isFinite(r) ||
+    r < 1 ||
+    r > 4 ||
+    !Number.isFinite(h) ||
+    h < 2 ||
+    h > 15 ||
+    !Number.isFinite(t)
+  )
+    throw new RangeError("잘못된 치수");
+  t = Math.max(0, Math.min(1, t));
+  const segments = 128,
+    faces = [];
+  if (shape.kind === "cylinder") {
+    const vertices = [],
+      indices = [],
+      bend = 1 - t;
+    for (let i = 0; i <= segments; i++) {
+      const u = (i / segments - 0.5) * 2 * Math.PI * r,
+        angle = (bend * u) / r,
+        x = bend < 1e-8 ? u : (r * Math.sin(angle)) / bend,
+        z = bend < 1e-8 ? 0 : (2 * r * Math.sin(angle / 2) ** 2) / bend;
+      vertices.push([x, 0, z], [x, h, z]);
+      if (i < segments) {
+        const j = i * 2;
+        indices.push(j, j + 2, j + 1, j + 1, j + 2, j + 3);
+      }
+    }
+    const outline = [
+      ...Array.from({ length: segments + 1 }, (_, i) => 2 * i),
+      ...Array.from({ length: segments + 1 }, (_, i) => 2 * (segments - i) + 1),
+    ];
+    faces.push({ ...face("side0", false, vertices), indices, outline });
+    for (let j = 0; j < 2; j++) {
+      const cap = [];
+      for (let i = 0; i < segments; i++) {
+        const angle = (2 * Math.PI * i) / segments,
+          d = r * (1 - Math.cos(angle)),
+          beta = (t * Math.PI) / 2;
+        cap.push([
+          r * Math.sin(angle),
+          j * h + (j ? 1 : -1) * d * Math.sin(beta),
+          d * Math.cos(beta),
+        ]);
+      }
+      faces.push(face("base" + j, true, cap));
+    }
+  } else {
+    const slant = Math.hypot(r, h),
+      ratio = r / slant + (1 - r / slant) * t,
+      radius = slant * ratio,
+      height = slant * Math.sqrt(Math.max(0, 1 - ratio * ratio)),
+      vertices = [[0, -radius, height]];
+    for (let i = 0; i <= segments; i++) {
+      const angle = ((i / segments - 0.5) * 2 * Math.PI * r) / radius;
+      vertices.push([
+        radius * Math.sin(angle),
+        radius * (Math.cos(angle) - 1),
+        0,
+      ]);
+    }
+    faces.push(face("side0", false, vertices));
+    const cap = [];
+    for (let i = 0; i < segments; i++) {
+      const angle = (2 * Math.PI * i) / segments,
+        d = r * (1 - Math.cos(angle));
+      cap.push([
+        r * Math.sin(angle),
+        -d * Math.cos(t * Math.PI),
+        -d * Math.sin(t * Math.PI),
+      ]);
+    }
+    faces.push(face("base0", true, cap));
+  }
+  return faces;
 }

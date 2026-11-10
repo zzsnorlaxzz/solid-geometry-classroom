@@ -9,7 +9,7 @@ import {
   validPolygon,
 } from "../src/geometry.js";
 const close = (a, b) => assert.ok(Math.abs(a - b) < 1e-8, `${a} != ${b}`);
-for (const shape of SHAPES)
+for (const shape of SHAPES.filter((s) => s.n))
   test(`${shape.name}: solid vertices keep the editor's axes and identities`, () => {
     for (const p of [
       DEFAULT_POLYGONS[shape.n],

@@ -369,3 +369,10 @@ canvas {
     height: 80dvh;
   }
 }
+
+[hidden] {
+  display: none !important;
+}
+#radius-control {
+  color: #60768a;
+}

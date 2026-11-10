@@ -2,11 +2,12 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {
   SHAPES,
-  geometry,
   triangulate,
   DEFAULT_POLYGONS,
   solidGeometry,
+  isRound,
 } from "./geometry.js";
+import { netGeometry, netOrientation } from "./presentation.js";
 import { layout } from "./ui.js";
 import { mountEditor } from "./editor.js";
 import "./style.css";
@@ -16,11 +17,14 @@ const $ = (id) => document.getElementById(id),
 let n = 3,
   kind = "prism",
   h = 6,
+  radius = 3,
   t = 1,
   selected = null;
 const dimensions = structuredClone(DEFAULT_POLYGONS),
-  shape = () => SHAPES.find((s) => s.kind === kind && s.n === n),
-  sides = () => dimensions[n];
+  shape = () =>
+    SHAPES.find((s) => s.kind === kind && (isRound(s) || s.n === n)),
+  sides = () => dimensions[n],
+  size = () => (isRound(shape()) ? radius : sides());
 $("app").innerHTML = layout;
 function view(canvas, flat) {
   const renderer = new THREE.WebGLRenderer({
@@ -50,6 +54,7 @@ try {
 }
 let orbit = new OrbitControls(solid.camera, $("solid-canvas")),
   netBox,
+  currentNetBox,
   solidHalfHeight = 10;
 const box = (data) =>
   new THREE.Box3().setFromPoints(
@@ -88,7 +93,9 @@ function draw(view, faces) {
       );
     mesh.userData.face = f.id;
     view.group.add(mesh);
-    const pts = f.vertices.map((p) => new THREE.Vector3(...p));
+    const pts = (f.outline || f.vertices.map((_, i) => i)).map(
+      (i) => new THREE.Vector3(...f.vertices[i]),
+    );
     pts.push(pts[0].clone());
     view.group.add(
       new THREE.Line(
@@ -99,7 +106,7 @@ function draw(view, faces) {
   }
 }
 function solidData() {
-  return solidGeometry(shape(), sides(), h);
+  return solidGeometry(shape(), size(), h);
 }
 function setSolidFrustum() {
   const aspect = $("solid-canvas").clientWidth / $("solid-canvas").clientHeight;
@@ -114,7 +121,11 @@ function fitSolid(preserveDirection = false) {
     center = box(data).getCenter(new THREE.Vector3()),
     direction = preserveDirection
       ? solid.camera.position.clone().sub(orbit.target).normalize()
-      : new THREE.Vector3(0, -0.95, 1.65).normalize();
+      : new THREE.Vector3(
+          0,
+          kind === "cone" ? -1.65 : -0.95,
+          kind === "cone" ? 0.95 : 1.65,
+        ).normalize();
   orbit.target.copy(center);
   solid.camera.position.copy(center).addScaledVector(direction, 100);
   solid.camera.zoom = 1;
@@ -146,27 +157,44 @@ function resetView() {
   fitSolid();
 }
 function netCamera() {
-  if (!netBox) return;
+  if (!netBox || !currentNetBox) return;
   const w = $("board").clientWidth,
-    hv = $("board").clientHeight,
-    size = netBox.getSize(new THREE.Vector3()),
-    scale = Math.max(size.x / (w * 0.8), size.y / (hv * 0.8), 0.015);
-  net.camera.left = (-w * scale) / 2;
-  net.camera.right = (w * scale) / 2;
-  net.camera.top = (hv * scale) / 2;
-  net.camera.bottom = (-hv * scale) / 2;
-  const folded = box(geometry(shape(), sides(), h, 0)).getCenter(
-      new THREE.Vector3(),
-    ),
-    center = folded.lerp(netBox.getCenter(new THREE.Vector3()), t);
+    hv = $("board").clientHeight;
+  if (!w || !hv) return;
+  const aspect = w / hv,
+    flatSize = netBox.getSize(new THREE.Vector3()),
+    radius = currentNetBox.getSize(new THREE.Vector3()).length() / 2,
+    blend = t ** 4,
+    halfHeight =
+      (((1 - blend) * radius) / Math.min(1, aspect) +
+        blend * Math.max(flatSize.x / (2 * aspect), flatSize.y / 2)) *
+      1.2,
+    center = currentNetBox.getCenter(new THREE.Vector3()),
+    orientation = netOrientation(solid.camera.quaternion, t);
+  net.camera.left = -halfHeight * aspect;
+  net.camera.right = halfHeight * aspect;
+  net.camera.top = halfHeight;
+  net.camera.bottom = -halfHeight;
+  net.camera.quaternion.copy(orientation);
   net.camera.position
     .copy(center)
-    .add(new THREE.Vector3(0, -30 * (1 - t), 100));
-  net.camera.lookAt(center);
+    .add(new THREE.Vector3(0, 0, 100).applyQuaternion(orientation));
+  net.camera.zoom = 1 + (solid.camera.zoom - 1) * (1 - blend);
   net.camera.updateProjectionMatrix();
+  net.camera.updateMatrixWorld();
+}
+function drawNet() {
+  const data = netGeometry(shape(), size(), h, t);
+  draw(net, data);
+  currentNetBox = box(data);
 }
 let vertexLabels = [];
 function labels() {
+  if (isRound(shape())) {
+    $("vertex-labels").innerHTML = "";
+    vertexLabels = [];
+    return;
+  }
   const base = solidData().find(
     (f) => f.id === (kind === "prism" ? "base1" : "base0"),
   );
@@ -184,13 +212,14 @@ function labels() {
 }
 function rebuild(reset = false) {
   draw(solid, solidData());
-  draw(net, geometry(shape(), sides(), h, t));
-  netBox = box(geometry(shape(), sides(), h, 1));
+  drawNet();
+  netBox = box(netGeometry(shape(), size(), h, 1));
   if (reset) resetView();
   netCamera();
   labels();
   $("app").dataset.shape = shape().id;
   $("app").dataset.vertices = JSON.stringify(sides());
+  $("app").dataset.radius = radius;
   $("app").dataset.height = h;
   $("height").value = h;
   $("app").dataset.progress = t;
@@ -205,10 +234,18 @@ const editor = mountEditor($("base-editor"), sides, (polygon) => {
 $("shape").onchange = () => {
   kind = $("shape").value;
   selected = null;
+  const rounded = isRound(shape());
+  $("polygon-settings").hidden = rounded;
+  $("radius-control").hidden = !rounded;
+  $("base-shape").disabled = rounded;
+  $("base-shape").querySelector('[value="circle"]').hidden = !rounded;
+  $("base-shape").value = rounded ? "circle" : String(n);
+  editor.render();
   rebuild(true);
 };
 $("base-shape").onchange = () => {
   n = Number($("base-shape").value);
+  dimensions[n] = structuredClone(DEFAULT_POLYGONS[n]);
   selected = null;
   editor.render();
   rebuild(true);
@@ -235,9 +272,14 @@ $("height").oninput = () => {
   rebuild();
   ensureVisible();
 };
+$("radius").oninput = () => {
+  radius = Number($("radius").value);
+  rebuild();
+  ensureVisible();
+};
 $("progress").oninput = () => {
   t = Number($("progress").value);
-  draw(net, geometry(shape(), sides(), h, t));
+  drawNet();
   netCamera();
   $("app").dataset.progress = t;
 };
@@ -297,6 +339,7 @@ new ResizeObserver(resize).observe($("solid-wrap"));
 new ResizeObserver(resize).observe($("board"));
 function animate() {
   orbit.update();
+  netCamera();
   for (const { el, p } of vertexLabels) {
     const q = p.clone().project(solid.camera);
     el.style.left = (q.x + 1) * 0.5 * $("solid-canvas").clientWidth + "px";
