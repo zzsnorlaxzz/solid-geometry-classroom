@@ -1,3 +1,5 @@
+import { INK_COLORS } from "./ink-tools.js";
+
 // Store ink in net-plane coordinates so it follows the diagram on resize.
 export function mountAnnotations({
   canvas,
@@ -10,10 +12,10 @@ export function mountAnnotations({
     status = document.getElementById("ink-status"),
     undo = document.getElementById("ink-undo"),
     clearButton = document.getElementById("ink-clear"),
-    color = document.getElementById("ink-color"),
     width = document.getElementById("ink-width");
   let enabled = false,
     mode = "pen",
+    color = "#000000",
     operations = [],
     pointer = null;
 
@@ -62,6 +64,11 @@ export function mountAnnotations({
         "aria-pressed",
         String(button.dataset.inkMode === mode),
       );
+    for (const button of tools.querySelectorAll("[data-ink-color]"))
+      button.setAttribute(
+        "aria-pressed",
+        String(button.dataset.inkColor === color),
+      );
     undo.disabled = clearButton.disabled = !enabled || operations.length === 0;
     status.textContent = !enabled
       ? "완전히 펼치면 필기할 수 있어요."
@@ -94,7 +101,7 @@ export function mountAnnotations({
     canvas.setPointerCapture(pointer);
     operations.push({
       mode,
-      color: color.value,
+      color,
       width: (mode === "eraser" ? 24 : Number(width.value)) * worldPerPixel(),
       points: [point(event)],
     });
@@ -118,6 +125,14 @@ export function mountAnnotations({
     button.onclick = () => {
       finish();
       mode = button.dataset.inkMode;
+      update();
+    };
+  for (const button of tools.querySelectorAll("[data-ink-color]"))
+    button.onclick = () => {
+      const next = button.dataset.inkColor;
+      if (!INK_COLORS.some(({ value }) => value === next)) return;
+      finish();
+      color = next;
       update();
     };
   undo.onclick = () => {
